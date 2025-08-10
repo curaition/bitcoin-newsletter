@@ -24,16 +24,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info(f"Starting Crypto Newsletter API - Environment: {settings.railway_environment}")
 
-    # Verify database connection
+    # Verify database connection (non-blocking for startup)
     try:
         async with get_db_session() as db:
             await db.execute(text("SELECT 1"))
         logger.info("✅ Database connection verified")
     except Exception as e:
-        logger.error(f"❌ Database connection failed: {e}")
-        raise
+        logger.warning(f"⚠️ Database connection failed during startup: {e}")
+        logger.info("🔄 Service will start anyway - database will be checked on first request")
     
-    # Verify Celery connection (if enabled)
+    # Verify Celery connection (if enabled) - non-blocking for startup
     if settings.enable_celery:
         try:
             from crypto_newsletter.shared.celery.app import celery_app
@@ -43,9 +43,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             if stats:
                 logger.info(f"✅ Celery workers available: {len(stats)}")
             else:
-                logger.warning("⚠️ No Celery workers detected")
+                logger.info("ℹ️ No Celery workers detected (normal during startup)")
         except Exception as e:
-            logger.warning(f"⚠️ Celery connection issue: {e}")
+            logger.info(f"ℹ️ Celery connection will be established when workers start: {e}")
     
     logger.info("🚀 Crypto Newsletter API started successfully")
     
