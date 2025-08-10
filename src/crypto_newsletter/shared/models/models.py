@@ -6,10 +6,12 @@ from typing import Optional
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Integer,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,18 +23,21 @@ class Publisher(Base, TimestampMixin):
 
     __tablename__ = "publishers"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     source_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
-    source_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_key: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    language: Mapped[str] = mapped_column(Text, default="EN", nullable=False)
-    source_type: Mapped[str] = mapped_column(Text, default="API", nullable=False)
+    lang: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     launch_date: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
     benchmark_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    status: Mapped[str] = mapped_column(Text, default="ACTIVE", nullable=False)
-    last_updated_ts: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(Text, default="ACTIVE", nullable=True)
+    last_updated_ts: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    created_on: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    updated_on: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     # Relationships
     articles: Mapped[list["Article"]] = relationship(
@@ -51,7 +56,7 @@ class Category(Base, TimestampMixin):
 
     __tablename__ = "categories"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     category_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False)
@@ -67,7 +72,7 @@ class Article(Base, TimestampMixin):
 
     __tablename__ = "articles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     external_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     guid: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -111,17 +116,22 @@ class Article(Base, TimestampMixin):
     )
 
 
-class ArticleCategory(Base, TimestampMixin):
+class ArticleCategory(Base):
     """Junction table for article-category relationships."""
 
     __tablename__ = "article_categories"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    article_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("articles.id"), nullable=False
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    article_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("articles.id"), nullable=True
     )
-    category_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("categories.id"), nullable=False
+    category_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("categories.id"), nullable=True
+    )
+    created_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=True,
     )
 
     # Relationships

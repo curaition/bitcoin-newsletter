@@ -152,21 +152,21 @@ class ArticleProcessor:
             publisher.name = source_data.get("NAME", publisher.name)
             publisher.image_url = source_data.get("IMAGE_URL")
             publisher.url = source_data.get("URL")
-            publisher.last_updated_ts = int(datetime.now(timezone.utc).timestamp())
+            publisher.last_updated_ts = datetime.now(timezone.utc)
             return publisher
 
         # Create new publisher
         try:
             publisher = Publisher(
                 source_id=source_id,
-                source_key=source_data.get("KEY"),
+                source_key=source_data.get("KEY", ""),
                 name=source_data.get("NAME", "Unknown"),
                 image_url=source_data.get("IMAGE_URL"),
                 url=source_data.get("URL"),
-                language=source_data.get("LANG", "EN"),
+                lang=source_data.get("LANG", "EN"),
                 source_type="API",
                 status="ACTIVE",
-                last_updated_ts=int(datetime.now(timezone.utc).timestamp()),
+                last_updated_ts=datetime.now(timezone.utc),
             )
 
             self.db.add(publisher)
