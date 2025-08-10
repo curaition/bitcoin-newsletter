@@ -2,6 +2,7 @@
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 
 import uvicorn
@@ -93,6 +94,16 @@ def create_app() -> FastAPI:
             "version": "1.0.0",
             "environment": settings.railway_environment,
             "docs": "/docs" if settings.railway_environment == "development" else "disabled",
+        }
+
+    # Direct health endpoint for Railway (without trailing slash)
+    @app.get("/health", include_in_schema=False)
+    async def health_check():
+        """Direct health check endpoint for Railway deployment."""
+        return {
+            "status": "healthy",
+            "service": "crypto-newsletter",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     
     # Global exception handler
