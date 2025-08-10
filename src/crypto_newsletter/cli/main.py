@@ -190,5 +190,109 @@ def version() -> None:
     typer.echo("Built with FastAPI, SQLAlchemy, and Celery")
 
 
+@app.command()
+def worker(
+    loglevel: str = typer.Option("INFO", help="Logging level"),
+    concurrency: int = typer.Option(2, help="Number of worker processes"),
+    queues: str = typer.Option("default,ingestion,monitoring,maintenance", help="Queues to consume from"),
+) -> None:
+    """Start Celery worker for background task processing."""
+    typer.echo("🔄 Starting Celery worker...")
+
+    try:
+        from crypto_newsletter.shared.celery.worker import start_worker
+        start_worker(loglevel=loglevel, concurrency=concurrency, queues=queues)
+    except ImportError:
+        typer.echo("❌ Celery not available. Install with: uv add celery[redis]")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start worker: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def beat() -> None:
+    """Start Celery beat scheduler for periodic tasks."""
+    typer.echo("⏰ Starting Celery beat scheduler...")
+
+    try:
+        from crypto_newsletter.shared.celery.worker import start_beat
+        start_beat()
+    except ImportError:
+        typer.echo("❌ Celery not available. Install with: uv add celery[redis]")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start beat: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def flower(
+    port: int = typer.Option(5555, help="Port to run Flower on"),
+) -> None:
+    """Start Flower monitoring interface for Celery."""
+    typer.echo(f"🌸 Starting Flower monitoring on port {port}...")
+
+    try:
+        from crypto_newsletter.shared.celery.worker import start_flower
+        start_flower(port=port)
+    except ImportError:
+        typer.echo("❌ Flower not available. Install with: uv add flower")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start Flower: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def task_status(task_id: str) -> None:
+    """Get status of a specific Celery task."""
+    try:
+        from crypto_newsletter.core.scheduling.tasks import get_task_status
+
+        status = get_task_status(task_id)
+
+        typer.echo(f"📋 Task Status: {task_id}")
+        typer.echo(f"   Status: {status['status']}")
+        typer.echo(f"   Result: {status['result']}")
+        if status['date_done']:
+            typer.echo(f"   Completed: {status['date_done']}")
+        if status['traceback']:
+            typer.echo(f"   Error: {status['traceback']}")
+
+    except ImportError:
+        typer.echo("❌ Celery not available")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to get task status: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def schedule_ingest(
+    limit: Optional[int] = typer.Option(None, help="Maximum number of articles to fetch"),
+    hours: int = typer.Option(4, help="Hours back to look for articles"),
+) -> None:
+    """Schedule an immediate article ingestion task."""
+    typer.echo("📅 Scheduling article ingestion task...")
+
+    try:
+        from crypto_newsletter.core.scheduling.tasks import manual_ingest
+
+        result = manual_ingest.delay(limit=limit, hours_back=hours)
+
+        typer.echo(f"✅ Task scheduled successfully!")
+        typer.echo(f"   Task ID: {result.id}")
+        typer.echo(f"   Status: {result.status}")
+        typer.echo(f"   Use 'task-status {result.id}' to check progress")
+
+    except ImportError:
+        typer.echo("❌ Celery not available")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to schedule task: {e}")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

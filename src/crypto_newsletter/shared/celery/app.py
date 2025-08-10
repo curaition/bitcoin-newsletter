@@ -1,0 +1,174 @@
+"""Celery application configuration and setup."""
+
+from celery import Celery
+from celery.schedules import crontab
+from kombu import Queue
+
+from crypto_newsletter.shared.config.settings import get_settings
+
+
+def create_celery_app() -> Celery:
+    """Create and configure Celery application."""
+    settings = get_settings()
+    
+    # Create Celery app
+    celery_app = Celery("crypto_newsletter")
+    
+    # Configure broker and backend
+    celery_app.conf.update(
+        broker_url=settings.effective_celery_broker_url,
+        result_backend=settings.effective_celery_result_backend,
+        
+        # Task serialization
+        task_serializer="json",
+        accept_content=["json"],
+        result_serializer="json",
+        timezone="UTC",
+        enable_utc=True,
+        
+        # Task routing and queues
+        task_routes={
+            "crypto_newsletter.core.scheduling.tasks.ingest_articles": {"queue": "ingestion"},
+            "crypto_newsletter.core.scheduling.tasks.health_check": {"queue": "monitoring"},
+            "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles": {"queue": "maintenance"},
+        },
+        
+        # Define queues
+        task_default_queue="default",
+        task_queues=(
+            Queue("default", routing_key="default"),
+            Queue("ingestion", routing_key="ingestion"),
+            Queue("monitoring", routing_key="monitoring"),
+            Queue("maintenance", routing_key="maintenance"),
+        ),
+        
+        # Worker configuration
+        worker_pool="prefork",
+        worker_concurrency=2,  # Adjust based on Railway resources
+        worker_max_tasks_per_child=1000,
+        worker_disable_rate_limits=False,
+        
+        # Task execution settings
+        task_time_limit=1800,  # 30 minutes
+        task_soft_time_limit=1500,  # 25 minutes
+        task_acks_late=True,
+        task_reject_on_worker_lost=True,
+        
+        # Result backend settings
+        result_expires=3600,  # 1 hour
+        result_persistent=True,
+        
+        # Beat schedule for periodic tasks
+        beat_schedule={
+            "ingest-articles-every-4-hours": {
+                "task": "crypto_newsletter.core.scheduling.tasks.ingest_articles",
+                "schedule": crontab(minute=0, hour="*/4"),  # Every 4 hours
+                "options": {
+                    "priority": 9,
+                    "retry_policy": {
+                        "max_retries": 3,
+                        "interval_start": 60,  # 1 minute
+                        "interval_step": 60,   # 1 minute increments
+                        "interval_max": 300,   # 5 minutes max
+                    }
+                },
+            },
+            "health-check-every-5-minutes": {
+                "task": "crypto_newsletter.core.scheduling.tasks.health_check",
+                "schedule": crontab(minute="*/5"),  # Every 5 minutes
+                "options": {"priority": 8},
+            },
+            "cleanup-old-articles-daily": {
+                "task": "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles",
+                "schedule": crontab(minute=0, hour=2),  # Daily at 2 AM UTC
+                "options": {"priority": 5},
+            },
+        },
+        
+        # Monitoring and logging
+        worker_send_task_events=True,
+        task_send_sent_event=True,
+        
+        # Error handling
+        task_annotations={
+            "*": {
+                "rate_limit": "100/m",  # 100 tasks per minute max
+                "time_limit": 1800,     # 30 minutes
+                "soft_time_limit": 1500, # 25 minutes
+            }
+        },
+    )
+    
+    # Auto-discover tasks
+    celery_app.autodiscover_tasks([
+        "crypto_newsletter.core.scheduling",
+    ])
+    
+    return celery_app
+
+
+# Global Celery app instance
+celery_app = create_celery_app()
+
+
+# Celery configuration for different environments
+class CeleryConfig:
+    """Celery configuration class."""
+    
+    @staticmethod
+    def development_config(app: Celery) -> None:
+        """Configure Celery for development environment."""
+        app.conf.update(
+            task_always_eager=False,  # Set to True to run tasks synchronously
+            task_eager_propagates=True,
+            worker_log_level="DEBUG",
+            beat_schedule_filename="celerybeat-schedule-dev",
+        )
+    
+    @staticmethod
+    def production_config(app: Celery) -> None:
+        """Configure Celery for production environment."""
+        app.conf.update(
+            task_always_eager=False,
+            worker_log_level="INFO",
+            worker_hijack_root_logger=False,
+            beat_schedule_filename="celerybeat-schedule-prod",
+            
+            # Production optimizations
+            worker_prefetch_multiplier=1,
+            task_compression="gzip",
+            result_compression="gzip",
+            
+            # Enhanced monitoring
+            worker_send_task_events=True,
+            task_send_sent_event=True,
+            
+            # Production error handling
+            task_reject_on_worker_lost=True,
+            task_acks_late=True,
+        )
+    
+    @staticmethod
+    def testing_config(app: Celery) -> None:
+        """Configure Celery for testing environment."""
+        app.conf.update(
+            task_always_eager=True,  # Run tasks synchronously in tests
+            task_eager_propagates=True,
+            broker_url="memory://",
+            result_backend="cache+memory://",
+        )
+
+
+def configure_celery_for_environment() -> Celery:
+    """Configure Celery based on current environment."""
+    settings = get_settings()
+    app = create_celery_app()
+    
+    if settings.testing:
+        CeleryConfig.testing_config(app)
+    elif settings.is_production:
+        CeleryConfig.production_config(app)
+    else:
+        CeleryConfig.development_config(app)
+    
+    return app
