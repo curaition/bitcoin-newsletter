@@ -167,6 +167,111 @@ class ArticleRepository:
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
+    async def get_recent_articles(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        publisher_id: Optional[int] = None,
+        hours_back: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get recent articles with optional filtering."""
+        try:
+            query = select(Article).where(Article.status == "ACTIVE")
+
+            # Apply filters
+            if publisher_id:
+                query = query.where(Article.publisher_id == publisher_id)
+
+            if hours_back:
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+                query = query.where(Article.published_on >= cutoff)
+
+            # Apply pagination and ordering
+            query = query.order_by(Article.published_on.desc()).offset(offset).limit(limit)
+
+            result = await self.db.execute(query)
+            articles = result.scalars().all()
+
+            return [
+                {
+                    "id": article.id,
+                    "external_id": article.external_id,
+                    "title": article.title,
+                    "subtitle": article.subtitle,
+                    "url": article.url,
+                    "published_on": article.published_on.isoformat() if article.published_on else None,
+                    "publisher_id": article.publisher_id,
+                    "language": article.language,
+                    "status": article.status,
+                }
+                for article in articles
+            ]
+
+        except Exception as e:
+            logger.error(f"Failed to get recent articles: {e}")
+            raise
+
+    async def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:
+        """Get detailed article information by ID."""
+        try:
+            query = select(Article).where(
+                Article.id == article_id,
+                Article.status == "ACTIVE"
+            )
+            result = await self.db.execute(query)
+            article = result.scalar_one_or_none()
+
+            if not article:
+                return None
+
+            return {
+                "id": article.id,
+                "external_id": article.external_id,
+                "guid": article.guid,
+                "title": article.title,
+                "subtitle": article.subtitle,
+                "authors": article.authors,
+                "url": article.url,
+                "body": article.body,
+                "keywords": article.keywords,
+                "language": article.language,
+                "image_url": article.image_url,
+                "published_on": article.published_on.isoformat() if article.published_on else None,
+                "publisher_id": article.publisher_id,
+                "source_id": article.source_id,
+                "status": article.status,
+                "created_at": article.created_at.isoformat() if article.created_at else None,
+                "updated_at": article.updated_at.isoformat() if article.updated_at else None,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get article by ID {article_id}: {e}")
+            raise
+
+    async def get_all_publishers_dict(self) -> List[Dict[str, Any]]:
+        """Get all publishers as dictionaries for API responses."""
+        try:
+            query = select(Publisher).order_by(Publisher.name)
+            result = await self.db.execute(query)
+            publishers = result.scalars().all()
+
+            return [
+                {
+                    "id": pub.id,
+                    "source_id": pub.source_id,
+                    "source_key": pub.source_key,
+                    "name": pub.name,
+                    "url": pub.url,
+                    "lang": pub.lang,
+                    "status": pub.status,
+                }
+                for pub in publishers
+            ]
+
+        except Exception as e:
+            logger.error(f"Failed to get all publishers: {e}")
+            raise
+
 
 class PublisherRepository:
     """Repository for publisher-related database operations."""

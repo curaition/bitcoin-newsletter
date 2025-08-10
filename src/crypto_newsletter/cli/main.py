@@ -162,24 +162,31 @@ def serve(
     port: int = typer.Option(8000, "--port", help="Port to bind to"),
     dev: bool = typer.Option(False, "--dev", help="Enable development mode"),
     production: bool = typer.Option(False, "--production", help="Enable production mode"),
+    workers: int = typer.Option(1, "--workers", help="Number of worker processes"),
 ) -> None:
     """Start the FastAPI web service."""
     if dev and production:
         typer.echo("❌ Cannot enable both dev and production modes")
         raise typer.Exit(1)
-    
-    if production:
-        typer.echo("🚀 Starting production web service...")
-        # TODO: Import and start production FastAPI app
-        typer.echo("❌ Production mode not yet implemented")
+
+    try:
+        from crypto_newsletter.web.main import start_server
+
+        if production:
+            typer.echo(f"🚀 Starting production web service on {host}:{port} with {workers} workers...")
+            start_server(host=host, port=port, reload=False, workers=workers)
+        elif dev:
+            typer.echo(f"🔧 Starting development web service on {host}:{port} with reload...")
+            start_server(host=host, port=port, reload=True, workers=1)
+        else:
+            typer.echo("❌ Must specify either --dev or --production mode")
+            raise typer.Exit(1)
+
+    except ImportError as e:
+        typer.echo(f"❌ FastAPI not available: {e}")
         raise typer.Exit(1)
-    elif dev:
-        typer.echo("🔧 Starting development web service...")
-        # TODO: Import and start development FastAPI app
-        typer.echo("❌ Development mode not yet implemented")
-        raise typer.Exit(1)
-    else:
-        typer.echo("❌ Must specify either --dev or --production mode")
+    except Exception as e:
+        typer.echo(f"❌ Failed to start web service: {e}")
         raise typer.Exit(1)
 
 
