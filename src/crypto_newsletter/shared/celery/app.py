@@ -126,8 +126,8 @@ def create_celery_app() -> Celery:
     return celery_app
 
 
-# Global Celery app instance
-celery_app = create_celery_app()
+# Global Celery app instance - configured for environment
+celery_app = configure_celery_for_environment()
 
 
 # Celery configuration for different environments
