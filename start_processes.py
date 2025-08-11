@@ -46,7 +46,7 @@ class ProcessManager:
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.PIPE,
                 universal_newlines=True,
                 bufsize=1  # Line buffered
             )
@@ -63,7 +63,7 @@ class ProcessManager:
                     process = subprocess.Popen(
                         fallback_command,
                         stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
+                        stderr=subprocess.PIPE,
                         universal_newlines=True,
                         bufsize=1  # Line buffered
                     )
@@ -146,6 +146,17 @@ class ProcessManager:
         # Check if web server is still running
         if web_process.poll() is not None:
             logger.error(f"Web server died during startup with exit code {web_process.returncode}")
+
+            # Capture and log the error output
+            try:
+                stdout, stderr = web_process.communicate(timeout=1)
+                if stdout:
+                    logger.error(f"Web server stdout: {stdout}")
+                if stderr:
+                    logger.error(f"Web server stderr: {stderr}")
+            except Exception as e:
+                logger.error(f"Failed to capture web server output: {e}")
+
             return False
 
         # Start Celery worker
