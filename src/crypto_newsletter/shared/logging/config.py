@@ -44,12 +44,12 @@ class LoggingConfig:
     
     def _configure_production(self) -> None:
         """Configure logging for production environment."""
-        # Structured JSON logging for production
+        # Simple structured logging for production (avoid Loguru recursion issues)
         logger.add(
             sys.stdout,
-            format=self._get_json_formatter(),
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
             level=self.settings.log_level,
-            serialize=True,
+            serialize=False,  # Disable JSON serialization to avoid recursion
             backtrace=False,
             diagnose=False,
             enqueue=True,
