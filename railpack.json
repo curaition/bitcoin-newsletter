@@ -1,4 +1,5 @@
 {
+  "$schema": "https://schema.railpack.com",
   "python": {
     "version": "3.11",
     "manager": "uv"
@@ -9,18 +10,14 @@
       "uv run alembic upgrade head"
     ]
   },
-  "start": {
-    "cmd": "uv run uvicorn crypto_newsletter.web.main:app --host 0.0.0.0 --port $PORT"
-  },
-  "environment": {
-    "PYTHONFAULTHANDLER": "1",
-    "PYTHONUNBUFFERED": "1", 
-    "PYTHONDONTWRITEBYTECODE": "1",
-    "UV_SYSTEM_PYTHON": "1",
-    "PYTHONPATH": "/app/src"
-  },
-  "healthcheck": {
-    "path": "/health",
-    "timeout": 100
+  "deploy": {
+    "startCommand": "python start_processes.py",
+    "variables": {
+      "PYTHONFAULTHANDLER": "1",
+      "PYTHONUNBUFFERED": "1", 
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "UV_SYSTEM_PYTHON": "1",
+      "PYTHONPATH": "/app/src"
+    }
   }
 }
