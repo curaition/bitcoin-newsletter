@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "python": {
+    "version": "3.11",
+    "manager": "uv"
+  },
+  "build": {
+    "commands": [
+      "uv sync --frozen"
+    ]
+  }
+}

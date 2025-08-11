@@ -1,1 +1,1 @@
-web: uv run python start_processes.py
+web: uv run --frozen python start_processes.py
