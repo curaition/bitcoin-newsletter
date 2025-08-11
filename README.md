@@ -64,24 +64,103 @@ pytest
 uv run crypto-newsletter serve --dev
 ```
 
-## Development Commands
+## CLI Commands
+
+The project includes a comprehensive CLI for managing all aspects of the application:
 
 ```bash
-# Development server
-uv run crypto-newsletter serve --dev
+# Show all available commands
+crypto-newsletter commands
 
-# Manual article ingestion
-uv run crypto-newsletter ingest-articles
+# Health and monitoring
+crypto-newsletter health              # Check system health
+crypto-newsletter monitor             # Real-time monitoring dashboard
+crypto-newsletter db-status           # Database status and statistics
+
+# Data management
+crypto-newsletter ingest              # Manual article ingestion
+crypto-newsletter stats               # Show article statistics
+crypto-newsletter export-data         # Export articles to JSON/CSV
+
+# Services
+crypto-newsletter serve --dev         # Start development server
+crypto-newsletter worker              # Start Celery worker
+crypto-newsletter beat                # Start Celery scheduler
+crypto-newsletter flower              # Start monitoring interface
+
+# Configuration
+crypto-newsletter config-show         # Show current configuration
+crypto-newsletter config-test         # Test all connections
+
+# Development
+crypto-newsletter dev-setup           # Setup development environment
+crypto-newsletter shell               # Interactive Python shell
+```
+
+For detailed CLI documentation, see [CLI Usage Guide](docs/CLI_USAGE.md).
+
+## Development Scripts
+
+The project includes comprehensive development scripts for easy environment management:
+
+### Quick Start
+```bash
+# Complete development setup
+./scripts/setup-dev.sh
+
+# Start development environment
+./scripts/dev-workflow.sh start
 
 # Run tests
-uv run pytest
+./scripts/dev-workflow.sh test-quick
+```
 
+### Development Workflow
+```bash
+./scripts/dev-workflow.sh start       # Start all services
+./scripts/dev-workflow.sh stop        # Stop all services
+./scripts/dev-workflow.sh test        # Run full test suite
+./scripts/dev-workflow.sh lint-fix    # Fix code formatting
+./scripts/dev-workflow.sh clean       # Clean environment
+```
+
+### Database Management
+```bash
+./scripts/db-manager.sh migrate       # Run migrations
+./scripts/db-manager.sh seed          # Add sample data
+./scripts/db-manager.sh backup        # Create backup
+./scripts/db-manager.sh stats         # Show statistics
+```
+
+### Monitoring & Maintenance
+```bash
+./scripts/monitor.sh status           # System status
+./scripts/monitor.sh health           # Health check
+./scripts/monitor.sh watch            # Real-time monitoring
+./scripts/monitor.sh cleanup          # Clean old data
+```
+
+### Production Deployment
+```bash
+./scripts/deploy-production.sh deploy    # Deploy to production
+./scripts/deploy-production.sh health    # Check production health
+./scripts/deploy-production.sh rollback  # Rollback if needed
+```
+
+For detailed development documentation, see [Development Guide](docs/DEVELOPMENT.md).
+
+## Manual Development Commands
+
+```bash
 # Code formatting
 uv run black src/ tests/
 uv run ruff check src/ tests/ --fix
 
 # Type checking
 uv run mypy src/
+
+# Run tests
+uv run pytest
 
 # Database migrations
 uv run alembic revision --autogenerate -m "Description"

@@ -57,6 +57,25 @@ def create_celery_app() -> Celery:
         # Result backend settings
         result_expires=3600,  # 1 hour
         result_persistent=True,
+
+        # Redis connection resilience settings
+        broker_connection_retry_on_startup=True,
+        broker_connection_max_retries=10,
+        broker_connection_retry=True,
+        broker_heartbeat=30,
+        broker_pool_limit=10,
+
+        # Redis-specific settings for connection stability
+        redis_socket_timeout=30,              # 30 seconds (vs default 120)
+        redis_socket_connect_timeout=10,      # 10 seconds connection timeout
+        redis_retry_on_timeout=True,          # Retry on timeout
+        redis_max_connections=20,             # Increase connection pool
+        redis_socket_keepalive=True,          # Enable TCP keepalive
+        redis_socket_keepalive_options={      # TCP keepalive options
+            "TCP_KEEPIDLE": 1,
+            "TCP_KEEPINTVL": 3,
+            "TCP_KEEPCNT": 5,
+        },
         
         # Beat schedule for periodic tasks
         beat_schedule={
@@ -130,22 +149,29 @@ class CeleryConfig:
         """Configure Celery for production environment."""
         app.conf.update(
             task_always_eager=False,
-            worker_log_level="INFO",
+            worker_log_level="WARNING",  # Reduced from INFO to prevent log spam
             worker_hijack_root_logger=False,
             beat_schedule_filename="celerybeat-schedule-prod",
-            
+
             # Production optimizations
             worker_prefetch_multiplier=1,
             task_compression="gzip",
             result_compression="gzip",
-            
+
             # Enhanced monitoring
             worker_send_task_events=True,
             task_send_sent_event=True,
-            
+
             # Production error handling
             task_reject_on_worker_lost=True,
             task_acks_late=True,
+
+            # Enhanced Redis connection resilience for production
+            broker_connection_retry_on_startup=True,
+            broker_connection_max_retries=15,  # More retries in production
+            broker_heartbeat=60,  # Longer heartbeat for production
+            redis_socket_timeout=45,  # Longer timeout for production
+            redis_socket_connect_timeout=15,  # Longer connection timeout
         )
     
     @staticmethod

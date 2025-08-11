@@ -11,6 +11,7 @@ from crypto_newsletter.core.ingestion.pipeline import ArticleIngestionPipeline
 from crypto_newsletter.core.ingestion import pipeline_health_check
 from crypto_newsletter.core.storage.repository import ArticleRepository
 from crypto_newsletter.shared.celery.app import celery_app
+from crypto_newsletter.shared.celery.health import check_celery_health
 from crypto_newsletter.shared.database.connection import get_db_session
 
 
@@ -111,18 +112,37 @@ def ingest_articles(
 )
 def health_check(self) -> Dict[str, Any]:
     """
-    Scheduled health check task.
-    
+    Scheduled health check task including Redis connection monitoring.
+
     Returns:
-        Dict with health check results
+        Dict with comprehensive health check results
     """
     async def _run_health_check():
         try:
             logger.debug("Running scheduled health check")
 
-            health_status = await pipeline_health_check()
+            # Check pipeline health
+            pipeline_status = await pipeline_health_check()
 
-            if health_status["status"] != "healthy":
+            # Check Redis/Celery connection health
+            celery_status = check_celery_health(celery_app)
+
+            # Combine results
+            overall_status = "healthy"
+            if (pipeline_status["status"] != "healthy" or
+                celery_status["overall_status"] != "healthy"):
+                overall_status = "unhealthy"
+
+            health_status = {
+                "status": overall_status,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "checks": {
+                    "pipeline": pipeline_status,
+                    "celery_redis": celery_status,
+                }
+            }
+
+            if overall_status != "healthy":
                 logger.warning(f"Health check detected issues: {health_status}")
             else:
                 logger.debug("Health check passed")

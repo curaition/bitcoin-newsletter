@@ -14,6 +14,8 @@ from sqlalchemy import text
 
 from crypto_newsletter.shared.config.settings import get_settings
 from crypto_newsletter.shared.database.connection import get_db_session
+from crypto_newsletter.shared.logging.config import configure_logging, get_logger
+from crypto_newsletter.shared.monitoring.metrics import get_metrics_collector
 from crypto_newsletter.web.routers import admin, api, health
 
 
@@ -21,18 +23,32 @@ from crypto_newsletter.web.routers import admin, api, health
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
     settings = get_settings()
-    
+
+    # Configure logging first
+    configure_logging()
+    app_logger = get_logger("web.main")
+
+    # Initialize metrics collector
+    metrics = get_metrics_collector()
+
     # Startup
-    logger.info(f"Starting Crypto Newsletter API - Environment: {settings.railway_environment}")
+    app_logger.info("Starting Crypto Newsletter API", extra={
+        "environment": settings.railway_environment,
+        "service_type": settings.service_type,
+        "debug": settings.debug
+    })
 
     # Verify database connection (non-blocking for startup)
     try:
         async with get_db_session() as db:
             await db.execute(text("SELECT 1"))
-        logger.info("✅ Database connection verified")
+        app_logger.info("Database connection verified")
     except Exception as e:
-        logger.warning(f"⚠️ Database connection failed during startup: {e}")
-        logger.info("🔄 Service will start anyway - database will be checked on first request")
+        app_logger.warning("Database connection failed during startup", extra={
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
+        app_logger.info("Service will start anyway - database will be checked on first request")
     
     # Verify Celery connection (if enabled) - non-blocking for startup
     if settings.enable_celery:

@@ -11,6 +11,11 @@ from sqlalchemy import text
 from crypto_newsletter.core.ingestion import pipeline_health_check
 from crypto_newsletter.shared.config.settings import get_settings
 from crypto_newsletter.shared.database.connection import get_db_session
+from crypto_newsletter.shared.logging.config import get_logger
+from crypto_newsletter.shared.monitoring.metrics import (
+    get_metrics_collector,
+    HealthChecker
+)
 
 router = APIRouter()
 
@@ -160,52 +165,80 @@ async def detailed_health() -> Dict[str, Any]:
 @router.get("/metrics")
 async def metrics_endpoint() -> Dict[str, Any]:
     """
-    Basic metrics endpoint for monitoring.
-    
+    Enhanced metrics endpoint for comprehensive monitoring.
+
     Returns:
-        System metrics and statistics
+        System metrics, application metrics, and statistics
     """
+    metrics_logger = get_logger("health.metrics")
+    collector = get_metrics_collector()
+
     try:
+        # Collect comprehensive metrics using new monitoring system
+        system_metrics = collector.collect_system_metrics()
+        app_metrics = collector.collect_application_metrics()
+        db_metrics = await collector.collect_database_metrics()
+        task_metrics = collector.collect_task_metrics()
+
+        # Legacy database statistics for backward compatibility
         from crypto_newsletter.core.storage.repository import ArticleRepository
-        
-        # Get database statistics
         async with get_db_session() as db:
             repo = ArticleRepository(db)
-            stats = await repo.get_statistics()
-        
-        # Add system metrics
+            legacy_stats = await repo.get_statistics()
+
+        # Combine all metrics
         metrics = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "crypto-newsletter",
-            "database": {
-                "total_articles": stats.get("total_articles", 0),
-                "recent_articles": stats.get("recent_articles", 0),
-                "total_publishers": stats.get("total_publishers", 0),
-                "total_categories": stats.get("total_categories", 0),
-            },
+            "environment": get_settings().railway_environment,
             "system": {
-                "environment": get_settings().environment,
-                "celery_enabled": get_settings().enable_celery,
+                "cpu_percent": system_metrics.cpu_percent,
+                "memory_percent": system_metrics.memory_percent,
+                "memory_used_mb": system_metrics.memory_used_mb,
+                "disk_percent": system_metrics.disk_percent,
+                "disk_free_gb": system_metrics.disk_free_gb,
+                "process_count": system_metrics.process_count,
+                "load_average": system_metrics.load_average
+            },
+            "application": {
+                "uptime_seconds": app_metrics.uptime_seconds,
+                "total_requests": app_metrics.total_requests,
+                "error_count": app_metrics.error_count,
+                "avg_response_time_ms": app_metrics.avg_response_time_ms,
+                "cache_hit_rate": app_metrics.cache_hit_rate
+            },
+            "database": {
+                "total_articles": db_metrics.total_articles,
+                "articles_today": db_metrics.articles_today,
+                "connection_count": db_metrics.connection_count,
+                "active_queries": db_metrics.active_queries,
+                # Legacy compatibility
+                "total_publishers": legacy_stats.get("total_publishers", 0),
+                "total_categories": legacy_stats.get("total_categories", 0)
+            },
+            "tasks": {
+                "active_tasks": task_metrics.active_tasks,
+                "pending_tasks": task_metrics.pending_tasks,
+                "completed_today": task_metrics.completed_tasks_today,
+                "failed_today": task_metrics.failed_tasks_today,
+                "queue_lengths": task_metrics.queue_lengths
             }
         }
-        
-        # Add Celery metrics if available
-        if get_settings().enable_celery:
-            try:
-                from crypto_newsletter.core.scheduling.tasks import get_active_tasks
-                active_tasks = get_active_tasks()
-                
-                metrics["celery"] = {
-                    "active_tasks": len(active_tasks.get("active", {}).get("celery@hostname", [])),
-                    "scheduled_tasks": len(active_tasks.get("scheduled", {}).get("celery@hostname", [])),
-                }
-            except Exception:
-                metrics["celery"] = {"status": "unavailable"}
-        
+
+        metrics_logger.info("Enhanced metrics collected", extra={
+            "cpu_percent": system_metrics.cpu_percent,
+            "memory_percent": system_metrics.memory_percent,
+            "total_requests": app_metrics.total_requests,
+            "total_articles": db_metrics.total_articles
+        })
+
         return metrics
-        
+
     except Exception as e:
-        logger.error(f"Metrics collection failed: {e}")
+        metrics_logger.error("Enhanced metrics collection failed", extra={
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
         raise HTTPException(
             status_code=500,
             detail={

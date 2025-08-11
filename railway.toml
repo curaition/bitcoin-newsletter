@@ -1,0 +1,47 @@
+[build]
+builder = "railpack"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "always"
+
+[env]
+PORT = { default = "8000" }
+RAILWAY_ENVIRONMENT = { default = "production" }
+PYTHONPATH = { default = "/app/src" }
+UV_SYSTEM_PYTHON = { default = "1" }
+PYTHONFAULTHANDLER = { default = "1" }
+PYTHONUNBUFFERED = { default = "1" }
+PYTHONDONTWRITEBYTECODE = { default = "1" }
+
+# Shared Variables (defined at project level)
+DATABASE_URL = { default = "${{Neon.DATABASE_URL}}" }
+REDIS_URL = { default = "${{Redis.REDIS_URL}}" }
+COINDESK_API_KEY = { default = "${{shared.COINDESK_API_KEY}}" }
+
+# Service-specific configurations
+[[services]]
+name = "web"
+source = "."
+
+[services.web]
+startCommand = "uv run uvicorn crypto_newsletter.web.main:app --host 0.0.0.0 --port $PORT --workers 1"
+tcpProxyPort = 8000
+variables = { SERVICE_TYPE = "web" }
+
+[[services]]
+name = "worker"
+source = "."
+
+[services.worker]
+startCommand = "uv run celery -A crypto_newsletter.shared.celery.app worker --loglevel=WARNING --concurrency=2 --queues=default,ingestion,monitoring,maintenance"
+variables = { SERVICE_TYPE = "worker" }
+
+[[services]]
+name = "beat"
+source = "."
+
+[services.beat]
+startCommand = "uv run celery -A crypto_newsletter.shared.celery.app beat --loglevel=WARNING --pidfile="
+variables = { SERVICE_TYPE = "beat" }
