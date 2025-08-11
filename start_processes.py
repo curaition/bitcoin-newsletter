@@ -122,18 +122,25 @@ class ProcessManager:
         # Start web server FIRST - this is critical for Railway health checks
         logger.info("Starting web server first for Railway health checks...")
 
-        # Try UV first, fallback to direct uvicorn if UV fails
+        # Check if we're in a UV environment (Dockerfile) or Railpack environment
+        if os.path.exists("/app/.venv/bin/python"):
+            # Dockerfile with UV virtual environment
+            python_cmd = "/app/.venv/bin/python"
+            logger.info("Using UV virtual environment Python")
+        else:
+            # Railpack environment - try to use system python
+            python_cmd = "python"
+            logger.info("Using system Python (Railpack)")
+
+        # Primary command: try UV if available
         web_cmd = [
             "uv", "run", "--frozen", "uvicorn", "crypto_newsletter.web.main:app",
             "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
         ]
 
-        # With --system flag in railpack.json, uvicorn should be available to system python
-        working_python = "python"
-
-        # Fallback command using the working python
+        # Fallback command using the detected python
         web_fallback_cmd = [
-            working_python, "-m", "uvicorn", "crypto_newsletter.web.main:app",
+            python_cmd, "-m", "uvicorn", "crypto_newsletter.web.main:app",
             "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
         ]
 
