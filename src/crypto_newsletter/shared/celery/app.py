@@ -62,10 +62,6 @@ def create_celery_app() -> Celery:
         result_expires=3600,  # 1 hour
         result_persistent=True,
 
-        # Beat scheduler configuration - use Redis-based scheduler to avoid dbm dependency
-        beat_scheduler="redbeat.RedBeatScheduler",
-        redbeat_redis_url=settings.effective_celery_broker_url,
-
         # Redis connection resilience settings
         broker_connection_retry_on_startup=True,
         broker_connection_max_retries=10,
