@@ -6,12 +6,12 @@
   },
   "build": {
     "commands": [
-      "uv sync --frozen --no-dev",
+      "uv sync --frozen",
       "uv run alembic upgrade head"
     ]
   },
   "deploy": {
-    "startCommand": "uv run python start_processes.py",
+    "startCommand": "./start.sh",
     "variables": {
       "PYTHONFAULTHANDLER": "1",
       "PYTHONUNBUFFERED": "1", 
