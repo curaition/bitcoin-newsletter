@@ -1,5 +1,14 @@
 """Celery application configuration and setup."""
 
+# IMPORTANT: Import redis before any other imports to ensure it's available for Kombu
+try:
+    import redis
+    # Force redis module to be fully loaded
+    redis.Redis
+except ImportError as e:
+    print(f"Failed to import redis: {e}")
+    raise
+
 from celery import Celery
 from celery.schedules import crontab
 from kombu import Queue
