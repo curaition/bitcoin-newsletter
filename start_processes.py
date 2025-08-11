@@ -103,7 +103,7 @@ class ProcessManager:
         
         # Start Celery worker
         worker_cmd = [
-            "uv", "run", "celery", "-A", "crypto_newsletter.shared.celery.app",
+            "uv", "run", "--frozen", "celery", "-A", "crypto_newsletter.shared.celery.app",
             "worker", "--loglevel=WARNING", "--concurrency=2",
             "--queues=default,ingestion,monitoring,maintenance"
         ]
@@ -113,16 +113,16 @@ class ProcessManager:
             
         # Start Celery beat scheduler
         beat_cmd = [
-            "uv", "run", "celery", "-A", "crypto_newsletter.shared.celery.app",
+            "uv", "run", "--frozen", "celery", "-A", "crypto_newsletter.shared.celery.app",
             "beat", "--loglevel=WARNING", "--pidfile="
         ]
         beat_process = self.start_process("celery-beat", beat_cmd)
         if not beat_process:
             return False
             
-        # Start web server
+        # Start web server - try UV first, fallback to direct python
         web_cmd = [
-            "uv", "run", "uvicorn", "crypto_newsletter.web.main:app",
+            "uv", "run", "--frozen", "uvicorn", "crypto_newsletter.web.main:app",
             "--host", "0.0.0.0", "--port", port
         ]
         web_process = self.start_process("web-server", web_cmd)
@@ -166,7 +166,13 @@ class ProcessManager:
     def run(self) -> int:
         """Main entry point to start and manage all processes."""
         logger.info("Starting Crypto Newsletter application...")
-        
+
+        # Debug environment
+        logger.info(f"Python executable: {sys.executable}")
+        logger.info(f"Working directory: {os.getcwd()}")
+        logger.info(f"PATH: {os.environ.get('PATH', 'Not set')}")
+        logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+
         # Set up signal handlers
         self.setup_signal_handlers()
         
