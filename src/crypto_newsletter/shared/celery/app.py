@@ -9,6 +9,23 @@ except ImportError as e:
     print(f"Failed to import redis: {e}")
     raise
 
+# IMPORTANT: Fix idna encoding issue in Railway containers
+try:
+    import encodings.idna
+    import codecs
+    # Ensure idna encoding is registered
+    codecs.lookup('idna')
+except (ImportError, LookupError) as e:
+    print(f"Warning: idna encoding issue: {e}")
+    # Try to register idna encoding manually
+    try:
+        import idna
+        import encodings
+        # Force registration of idna encoding
+        encodings._cache['idna'] = encodings.idna
+    except Exception as fallback_e:
+        print(f"Failed to register idna encoding: {fallback_e}")
+
 from celery import Celery
 from celery.schedules import crontab
 from kombu import Queue
