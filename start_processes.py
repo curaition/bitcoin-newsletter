@@ -39,10 +39,10 @@ class ProcessManager:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         
-    def start_process(self, name: str, command: List[str]) -> Optional[subprocess.Popen]:
+    def start_process(self, name: str, command: List[str], fallback_command: Optional[List[str]] = None) -> Optional[subprocess.Popen]:
         """Start a subprocess and add it to the managed processes list."""
         try:
-            logger.info(f"Starting {name} process...")
+            logger.info(f"Starting {name} process with command: {' '.join(command)}")
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -54,7 +54,25 @@ class ProcessManager:
             logger.info(f"Started {name} process with PID: {process.pid}")
             return process
         except Exception as e:
-            logger.error(f"Failed to start {name} process: {e}")
+            logger.error(f"Failed to start {name} process with primary command: {e}")
+
+            # Try fallback command if provided
+            if fallback_command:
+                try:
+                    logger.info(f"Trying fallback command for {name}: {' '.join(fallback_command)}")
+                    process = subprocess.Popen(
+                        fallback_command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True,
+                        bufsize=1  # Line buffered
+                    )
+                    self.processes.append(process)
+                    logger.info(f"Started {name} process with fallback command, PID: {process.pid}")
+                    return process
+                except Exception as fallback_e:
+                    logger.error(f"Fallback command also failed for {name}: {fallback_e}")
+
             return None
             
     def shutdown_processes(self) -> None:
@@ -103,11 +121,20 @@ class ProcessManager:
 
         # Start web server FIRST - this is critical for Railway health checks
         logger.info("Starting web server first for Railway health checks...")
+
+        # Try UV first, fallback to direct uvicorn if UV fails
         web_cmd = [
             "uv", "run", "--frozen", "uvicorn", "crypto_newsletter.web.main:app",
             "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
         ]
-        web_process = self.start_process("web-server", web_cmd)
+
+        # Fallback command using system python and uvicorn
+        web_fallback_cmd = [
+            "python", "-m", "uvicorn", "crypto_newsletter.web.main:app",
+            "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
+        ]
+
+        web_process = self.start_process("web-server", web_cmd, web_fallback_cmd)
         if not web_process:
             logger.error("Failed to start web server - this is critical for Railway")
             return False

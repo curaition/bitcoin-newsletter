@@ -11,7 +11,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "./start.sh",
+    "startCommand": "uv run python start_processes.py",
     "variables": {
       "PYTHONFAULTHANDLER": "1",
       "PYTHONUNBUFFERED": "1", 
