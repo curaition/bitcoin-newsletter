@@ -6,7 +6,8 @@
   },
   "build": {
     "commands": [
-      "uv sync --frozen"
+      "uv sync --frozen",
+      "uv run alembic upgrade head"
     ]
   }
 }
