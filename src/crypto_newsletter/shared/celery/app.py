@@ -51,9 +51,9 @@ def create_celery_app() -> Celery:
             Queue("maintenance", routing_key="maintenance"),
         ),
         
-        # Worker configuration
-        worker_pool="prefork",
-        worker_concurrency=2,  # Adjust based on Railway resources
+        # Worker configuration - use solo pool to avoid mmap issues in containers
+        worker_pool="solo",  # Changed from prefork to avoid mmap dependency
+        worker_concurrency=1,  # Solo pool only supports concurrency=1
         worker_max_tasks_per_child=1000,
         worker_disable_rate_limits=False,
         
