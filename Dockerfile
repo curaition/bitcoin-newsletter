@@ -1,15 +1,8 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use Python 3.11 image with build tools already included
+FROM python:3.11
 
 # Set working directory
 WORKDIR /app
-
-# Install system dependencies in one layer
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    gcc \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install UV directly
 RUN pip install uv
