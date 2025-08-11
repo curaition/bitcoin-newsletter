@@ -1,30 +1,8 @@
 """Celery application configuration and setup."""
 
-# IMPORTANT: Import redis before any other imports to ensure it's available for Kombu
-try:
-    import redis
-    # Force redis module to be fully loaded
-    redis.Redis
-except ImportError as e:
-    print(f"Failed to import redis: {e}")
-    raise
-
-# IMPORTANT: Fix idna encoding issue in Railway containers
-try:
-    import encodings.idna
-    import codecs
-    # Ensure idna encoding is registered
-    codecs.lookup('idna')
-except (ImportError, LookupError) as e:
-    print(f"Warning: idna encoding issue: {e}")
-    # Try to register idna encoding manually
-    try:
-        import idna
-        import encodings
-        # Force registration of idna encoding
-        encodings._cache['idna'] = encodings.idna
-    except Exception as fallback_e:
-        print(f"Failed to register idna encoding: {fallback_e}")
+# Essential imports for Railway compatibility
+import redis  # Required before Kombu imports
+import encodings.idna  # Required for Railway containers
 
 from celery import Celery
 from celery.schedules import crontab
