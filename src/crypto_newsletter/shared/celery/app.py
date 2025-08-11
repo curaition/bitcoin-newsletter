@@ -183,18 +183,7 @@ class CeleryConfig:
 
 def configure_celery_for_environment() -> Celery:
     """Configure Celery based on current environment."""
-    import os
     settings = get_settings()
-
-    # Debug logging to see what's happening
-    print(f"DEBUG: REDIS_URL = {os.getenv('REDIS_URL', 'NOT_SET')}")
-    print(f"DEBUG: CELERY_BROKER_URL = {os.getenv('CELERY_BROKER_URL', 'NOT_SET')}")
-    print(f"DEBUG: CELERY_RESULT_BACKEND = {os.getenv('CELERY_RESULT_BACKEND', 'NOT_SET')}")
-    print(f"DEBUG: settings.redis_url = {settings.redis_url}")
-    print(f"DEBUG: settings.celery_broker_url = {settings.celery_broker_url}")
-    print(f"DEBUG: settings.effective_celery_broker_url = {settings.effective_celery_broker_url}")
-    print(f"DEBUG: settings.is_production = {settings.is_production}")
-
     app = create_celery_app()
 
     if settings.testing:
