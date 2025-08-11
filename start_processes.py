@@ -128,34 +128,8 @@ class ProcessManager:
             "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
         ]
 
-        # Find Python with uvicorn installed
-        python_candidates = [
-            "/app/.venv/bin/python",  # UV virtual environment
-            "/root/.local/share/uv/python",  # UV global python
-            "python3",  # System python3
-            "python"   # System python
-        ]
-
-        working_python = None
-        for python_path in python_candidates:
-            try:
-                # Test if this python has uvicorn
-                result = subprocess.run(
-                    [python_path, "-c", "import uvicorn; print('OK')"],
-                    capture_output=True,
-                    timeout=5,
-                    text=True
-                )
-                if result.returncode == 0:
-                    working_python = python_path
-                    logger.info(f"Found Python with uvicorn: {python_path}")
-                    break
-            except Exception:
-                continue
-
-        if not working_python:
-            working_python = "python"  # Last resort
-            logger.warning("No Python with uvicorn found, using system python as fallback")
+        # With --system flag in railpack.json, uvicorn should be available to system python
+        working_python = "python"
 
         # Fallback command using the working python
         web_fallback_cmd = [

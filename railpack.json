@@ -7,6 +7,7 @@
   "build": {
     "commands": [
       "uv sync --frozen",
+      "uv pip install --system uvicorn fastapi celery redis alembic psycopg2-binary python-multipart",
       "uv run alembic upgrade head"
     ]
   }
