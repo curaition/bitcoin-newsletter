@@ -21,6 +21,7 @@ dependencies = [
 
     # Task Queue & Scheduling
     "celery[redis]>=5.3.0",
+    "celery-redbeat>=2.0.0",  # Redis-based beat scheduler (no dbm dependency)
     "redis>=4.5.2,!=5.0.2,!=4.5.5,<5.0.0",
     "idna>=3.4",  # Fix for LookupError: unknown encoding: idna
 
