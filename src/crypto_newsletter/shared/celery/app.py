@@ -126,10 +126,6 @@ def create_celery_app() -> Celery:
     return celery_app
 
 
-# Global Celery app instance - configured for environment
-celery_app = configure_celery_for_environment()
-
-
 # Celery configuration for different environments
 class CeleryConfig:
     """Celery configuration class."""
@@ -189,12 +185,16 @@ def configure_celery_for_environment() -> Celery:
     """Configure Celery based on current environment."""
     settings = get_settings()
     app = create_celery_app()
-    
+
     if settings.testing:
         CeleryConfig.testing_config(app)
     elif settings.is_production:
         CeleryConfig.production_config(app)
     else:
         CeleryConfig.development_config(app)
-    
+
     return app
+
+
+# Global Celery app instance - configured for environment
+celery_app = configure_celery_for_environment()
