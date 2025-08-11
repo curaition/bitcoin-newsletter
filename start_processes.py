@@ -100,8 +100,29 @@ class ProcessManager:
     def start_all_processes(self) -> bool:
         """Start all application processes."""
         port = os.getenv("PORT", "8000")
-        
+
+        # Start web server FIRST - this is critical for Railway health checks
+        logger.info("Starting web server first for Railway health checks...")
+        web_cmd = [
+            "uv", "run", "--frozen", "uvicorn", "crypto_newsletter.web.main:app",
+            "--host", "0.0.0.0", "--port", port, "--timeout-keep-alive", "30"
+        ]
+        web_process = self.start_process("web-server", web_cmd)
+        if not web_process:
+            logger.error("Failed to start web server - this is critical for Railway")
+            return False
+
+        # Give web server time to start before starting background processes
+        logger.info("Waiting for web server to initialize...")
+        time.sleep(10)
+
+        # Check if web server is still running
+        if web_process.poll() is not None:
+            logger.error(f"Web server died during startup with exit code {web_process.returncode}")
+            return False
+
         # Start Celery worker
+        logger.info("Starting Celery worker...")
         worker_cmd = [
             "uv", "run", "--frozen", "celery", "-A", "crypto_newsletter.shared.celery.app",
             "worker", "--loglevel=WARNING", "--concurrency=2",
@@ -109,58 +130,62 @@ class ProcessManager:
         ]
         worker_process = self.start_process("celery-worker", worker_cmd)
         if not worker_process:
-            return False
-            
+            logger.warning("Failed to start Celery worker - continuing anyway")
+
         # Start Celery beat scheduler
+        logger.info("Starting Celery beat scheduler...")
         beat_cmd = [
             "uv", "run", "--frozen", "celery", "-A", "crypto_newsletter.shared.celery.app",
             "beat", "--loglevel=WARNING", "--pidfile="
         ]
         beat_process = self.start_process("celery-beat", beat_cmd)
         if not beat_process:
-            return False
-            
-        # Start web server - try UV first, fallback to direct python
-        web_cmd = [
-            "uv", "run", "--frozen", "uvicorn", "crypto_newsletter.web.main:app",
-            "--host", "0.0.0.0", "--port", port
-        ]
-        web_process = self.start_process("web-server", web_cmd)
-        if not web_process:
-            return False
-            
+            logger.warning("Failed to start Celery beat - continuing anyway")
+
         return True
         
     def monitor_processes(self) -> None:
         """Monitor processes and handle failures."""
         logger.info("Starting process monitoring...")
-        
+
         while not self.shutdown_requested:
             try:
                 # Check if any process has died
                 for i, process in enumerate(self.processes):
                     if process.poll() is not None:
-                        logger.error(f"Process {process.pid} has died with exit code {process.returncode}")
-                        # In a production system, you might want to restart the process here
-                        # For now, we'll just shutdown everything
-                        logger.error("A critical process has died, shutting down all processes")
-                        self.shutdown_requested = True
-                        break
-                        
+                        process_name = "unknown"
+                        if i == 0:
+                            process_name = "web-server"
+                        elif i == 1:
+                            process_name = "celery-worker"
+                        elif i == 2:
+                            process_name = "celery-beat"
+
+                        logger.error(f"Process {process_name} (PID {process.pid}) has died with exit code {process.returncode}")
+
+                        # Only shutdown everything if the web server dies
+                        # Celery processes can fail without killing the whole service
+                        if process_name == "web-server":
+                            logger.error("Web server has died - this is critical for Railway, shutting down all processes")
+                            self.shutdown_requested = True
+                            break
+                        else:
+                            logger.warning(f"{process_name} has died but web server is still running - continuing")
+
                 if self.shutdown_requested:
                     break
-                    
+
                 # Sleep before next check
-                time.sleep(1)
-                
+                time.sleep(5)  # Check less frequently to reduce log noise
+
             except KeyboardInterrupt:
                 logger.info("Received keyboard interrupt")
                 self.shutdown_requested = True
                 break
             except Exception as e:
                 logger.error(f"Error in process monitoring: {e}")
-                time.sleep(1)
-                
+                time.sleep(5)
+
         self.shutdown_processes()
         
     def run(self) -> int:
