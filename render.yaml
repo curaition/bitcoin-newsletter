@@ -116,53 +116,9 @@ services:
       - key: ENABLE_CELERY
         value: "true"
 
-  # Backoffice Admin Dashboard (React)
-  - type: web
-    name: bitcoin-newsletter-backoffice
-    runtime: static
-    region: oregon
-    plan: starter
-    buildCommand: |
-      cd backoffice
-      npm ci
-      npm run build
-    publishPath: ./backoffice/dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: bitcoin-newsletter-api
-          property: url
-      - key: VITE_ENVIRONMENT
-        value: "production"
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # Consumer Frontend (React)
-  - type: web
-    name: bitcoin-newsletter-frontend
-    runtime: static
-    region: oregon
-    plan: starter
-    buildCommand: |
-      cd frontend
-      npm ci
-      npm run build
-    publishPath: ./frontend/dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: bitcoin-newsletter-api
-          property: url
-      - key: VITE_ENVIRONMENT
-        value: "production"
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+# Frontend services will be added later after creating React applications
+# - Backoffice Admin Dashboard (React)
+# - Consumer Frontend (React)
 
 databases:
   # Redis for Celery (PostgreSQL hosted externally on Neon)
