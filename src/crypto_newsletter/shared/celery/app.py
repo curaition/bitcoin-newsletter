@@ -14,10 +14,19 @@ from crypto_newsletter.shared.config.settings import get_settings
 def create_celery_app() -> Celery:
     """Create and configure Celery application."""
     settings = get_settings()
-    
+
+    # Setup Django for beat scheduler (only when needed)
+    if settings.service_type == "beat":
+        try:
+            from crypto_newsletter.shared.django_minimal import setup_django
+            setup_django()
+        except Exception as e:
+            # Log warning but don't fail - beat service will handle this
+            print(f"Warning: Could not setup Django for beat scheduler: {e}")
+
     # Create Celery app
     celery_app = Celery("crypto_newsletter")
-    
+
     # Configure broker and backend
     celery_app.conf.update(
         broker_url=settings.effective_celery_broker_url,
@@ -107,7 +116,10 @@ def create_celery_app() -> Celery:
                 "options": {"priority": 5},
             },
         },
-        
+
+        # Beat scheduler configuration - use database scheduler to avoid dbm dependency
+        beat_scheduler='django_celery_beat.schedulers:DatabaseScheduler',
+
         # Monitoring and logging
         worker_send_task_events=True,
         task_send_sent_event=True,
