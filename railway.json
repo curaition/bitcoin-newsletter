@@ -4,7 +4,7 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "${START_COMMAND}",
+    "startCommand": "python -m uvicorn crypto_newsletter.web.main:app --host 0.0.0.0 --port $PORT --workers 1",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "on_failure"

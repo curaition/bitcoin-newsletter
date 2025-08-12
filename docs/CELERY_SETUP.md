@@ -1,31 +1,81 @@
-# Celery Task Queue Setup
+# Celery Task Queue Setup - Railway Cloud Infrastructure
 
-This document describes the Celery task queue configuration for automated article ingestion and background processing.
+This document describes the **NEW RAILWAY-BASED** Celery task queue configuration for automated article ingestion and background processing.
 
 ## Overview
 
-The Crypto Newsletter uses Celery with Redis as the message broker for:
-- **Scheduled article ingestion every 4 hours**
-- **Health monitoring every 5 minutes**
-- **Daily cleanup of old articles**
-- **Manual task triggering via CLI/API**
+The Bitcoin Newsletter now uses **Railway's cloud infrastructure** for Celery processing:
+- **Railway Worker**: Processes background tasks in the cloud
+- **Railway Beat**: Schedules tasks every 4 hours in the cloud
+- **Railway Redis**: Message broker in the cloud
+- **Local Development**: Web service runs locally with hot reload
+- **Shared Database**: Neon PostgreSQL accessible from both environments
 
-## Architecture
+## New Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Celery Beat   │    │  Celery Worker  │    │     Redis       │
-│   (Scheduler)   │───▶│  (Processor)    │◀──▶│   (Broker)      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    LOCAL DEVELOPMENT                            │
+│  ┌─────────────────┐                                           │
+│  │   Web Service   │  ← You develop here                       │
+│  │   (FastAPI)     │  ← Submit tasks to Railway                │
+│  │ localhost:8000  │                                           │
+│  └─────────────────┘                                           │
+└─────────────────────────────────────────────────────────────────┘
+           │ railway run (environment variables)
+           │
+┌─────────────────────────────────────────────────────────────────┐
+│                  RAILWAY CLOUD INFRASTRUCTURE                   │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
+│  │   Celery Beat   │    │  Celery Worker  │    │    Redis    │ │
+│  │   (Scheduler)   │───▶│  (Processor)    │◀──▶│  (Broker)   │ │
+│  │                 │    │                 │    │             │ │
+│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+           │                       │                       │
+           │                       │                       │
+           ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │  Periodic Tasks │    │ Background Jobs │    │ Task Results    │
 │  - Ingestion    │    │ - API Calls     │    │ - Success/Fail  │
 │  - Health Check │    │ - DB Operations │    │ - Metrics       │
 │  - Cleanup      │    │ - Processing    │    │ - Logs          │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+           │                       │                       │
+           └───────────────────────┼───────────────────────┘
+                                   │
+                      ┌─────────────────┐
+                      │   Neon DB       │
+                      │ (PostgreSQL)    │
+                      │   (Shared)      │
+                      └─────────────────┘
+```
+
+## Railway Infrastructure
+
+### Railway Project: `proactive-alignment`
+- **Project ID**: `6115f406-107e-45c3-85d4-d720c3638053`
+- **Worker Service**: `celery -A main.app worker --concurrency=1 -l INFO`
+- **Beat Service**: `celery -A main.app beat -l INFO`
+- **Redis Service**: Managed by Railway
+- **Environment**: All variables configured
+
+### Celery App Compatibility
+The `main.py` file provides compatibility between Railway's expected `main.app` and our project structure:
+
+```python
+# main.py - Railway entry point
+from crypto_newsletter.shared.celery.app import celery_app
+app = celery_app  # Expose for Railway services
+```
+
+### Local Development Integration
+```bash
+# Start local development with Railway infrastructure
+./scripts/dev-railway.sh
+
+# Test tasks using Railway infrastructure
+./scripts/test-railway-tasks.sh
 ```
 
 ## Scheduled Tasks
@@ -33,21 +83,24 @@ The Crypto Newsletter uses Celery with Redis as the message broker for:
 ### 1. Article Ingestion (`ingest-articles-every-4-hours`)
 - **Schedule**: Every 4 hours (0, 4, 8, 12, 16, 20 UTC)
 - **Purpose**: Fetch and process new articles from CoinDesk API
-- **Queue**: `ingestion`
+- **Execution**: Railway Worker Service
+- **Storage**: Neon PostgreSQL Database
 - **Retry**: 3 attempts with exponential backoff
 - **Timeout**: 30 minutes
 
 ### 2. Health Monitoring (`health-check-every-5-minutes`)
 - **Schedule**: Every 5 minutes
 - **Purpose**: Monitor API and database connectivity
-- **Queue**: `monitoring`
+- **Execution**: Railway Worker Service
+- **Monitoring**: Railway logs and dashboard
 - **Retry**: 1 attempt
 - **Timeout**: 5 minutes
 
 ### 3. Article Cleanup (`cleanup-old-articles-daily`)
 - **Schedule**: Daily at 2:00 AM UTC
 - **Purpose**: Mark articles older than 30 days as DELETED
-- **Queue**: `maintenance`
+- **Execution**: Railway Worker Service
+- **Database**: Neon PostgreSQL cleanup
 - **Retry**: 2 attempts
 - **Timeout**: 30 minutes
 

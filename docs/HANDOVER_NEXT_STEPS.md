@@ -1,53 +1,74 @@
-# Bitcoin Newsletter - Railway Deployment Handover
+# Bitcoin Newsletter - Railway Development Environment
 
-## 🎯 Current Status (As of 2025-08-11 23:00 UTC)
+## 🎯 Current Status (As of 2025-08-12)
 
-### ✅ Successfully Completed
-- **Web Service**: ✅ Running and healthy on Railway
-- **Celery Worker**: ✅ Running and processing tasks (45+ minutes stable)
-- **Redis Service**: ✅ Connected and operational
-- **Neon Database**: ✅ Connected and operational
-- **Critical Deployment Issues**: ✅ All resolved (Redis import, mmap, idna encoding)
+### ✅ NEW SIMPLIFIED DEPLOYMENT COMPLETED
+- **Railway Project**: `proactive-alignment` (ID: 6115f406-107e-45c3-85d4-d720c3638053)
+- **Celery Worker**: ✅ Running and processing tasks on Railway
+- **Celery Beat**: ✅ Running and scheduling tasks on Railway
+- **Redis Service**: ✅ Connected and operational on Railway
+- **Neon Database**: ✅ Connected and operational (shared)
+- **Environment Variables**: ✅ All configured in Railway
+- **Local Development**: ✅ Ready for hybrid development
 
-### 🔄 Remaining Tasks (Steps 2-7)
-This document provides detailed instructions for completing the remaining deployment steps.
+### 🚀 Development Approach
+- **Local Web Service**: FastAPI with hot reload
+- **Cloud Task Processing**: Worker and Beat on Railway
+- **Shared Database**: Neon PostgreSQL
+- **Simplified Workflow**: No complex multi-service management
 
 ---
 
-## Step 2: Test Task Execution and Database Storage
+## Quick Start Guide
 
-### Objective
-Verify that Celery tasks execute successfully and articles are stored in the Neon database.
-
-### Prerequisites
-- Celery worker is running (✅ confirmed)
-- Neon database is connected (✅ confirmed)
-- Web service is healthy (✅ confirmed)
-
-### Testing Procedure
-
-#### 2.1 Test Manual Task Execution
+### 1. Setup Railway CLI
 ```bash
-# Connect to the web service container
-railway shell --service web
+# Install Railway CLI
+curl -fsSL https://railway.com/install.sh | sh
 
-# Test article ingestion task manually
-python -c "
-from crypto_newsletter.core.scheduling.tasks import ingest_articles
-result = ingest_articles.delay()
-print(f'Task ID: {result.id}')
-print(f'Task Status: {result.status}')
-"
+# Authenticate
+railway login
+
+# Link to the new project
+railway link -p 6115f406-107e-45c3-85d4-d720c3638053
+
+# Verify connection
+railway status
 ```
 
-#### 2.2 Verify Database Storage
+### 2. Start Local Development
 ```bash
-# Check articles in Neon database
-python -c "
-from crypto_newsletter.shared.database.connection import get_db_session
-from crypto_newsletter.core.models.models import Article
+# Start local web service with Railway infrastructure
+./scripts/dev-railway.sh
+```
 
-with get_db_session() as session:
+Your development server will be available at: `http://localhost:8000`
+
+### 3. Test Task Execution
+```bash
+# Test tasks using Railway infrastructure
+./scripts/test-railway-tasks.sh
+```
+
+This will test:
+- Database connection
+- Health check tasks
+- Article ingestion (optional)
+
+## Development Workflow
+
+### Daily Development Process
+1. **Start Local Development**: `./scripts/dev-railway.sh`
+2. **Develop Web Features**: Edit code with hot reload at localhost:8000
+3. **Test Tasks**: Use `./scripts/test-railway-tasks.sh`
+4. **Monitor**: Check Railway dashboard for worker/beat logs
+
+### Task Processing Flow
+```
+Local Web Service → Submit Task → Railway Worker → Process Task → Store in Neon DB
+     ↑                                                                    ↓
+   You develop here                                            Data available locally
+```
     articles = session.query(Article).limit(5).all()
     print(f'Total articles: {len(articles)}')
     for article in articles:

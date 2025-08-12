@@ -2,126 +2,190 @@
 
 ## Overview
 
-This guide covers deploying the Bitcoin Newsletter system to Railway with a multi-service architecture including web service, Celery worker, beat scheduler, and Redis.
+This guide covers the **NEW SIMPLIFIED** Bitcoin Newsletter deployment using Railway's cloud infrastructure for background processing while maintaining local development flexibility.
 
-## Current Deployment Status
+## 🚀 Current Deployment: "proactive-alignment"
 
-### ✅ Successfully Deployed Services
-- **Web Service**: ✅ Running and healthy (FastAPI)
+### ✅ Railway Project Status
+- **Project Name**: `proactive-alignment`
+- **Project ID**: `6115f406-107e-45c3-85d4-d720c3638053`
+- **Deployment Type**: **Hybrid Local + Cloud Development**
+
+### ✅ Active Services
 - **Celery Worker**: ✅ Running and processing tasks
-- **Redis Service**: ✅ Running and connected
+- **Celery Beat**: ✅ Running and scheduling tasks (every 4 hours)
+- **Redis**: ✅ Running as message broker
 - **Neon Database**: ✅ Connected and operational
 
-### ⏳ Pending Services
-- **Celery Beat**: Needs to be deployed for scheduled tasks
+### 🎯 Development Approach
+- **Local Web Service**: FastAPI runs locally with hot reload
+- **Cloud Task Processing**: Worker and Beat run on Railway
+- **Shared Database**: Neon PostgreSQL accessible from both environments
+- **Simplified Workflow**: No complex multi-service management
 
 ## Prerequisites
 
-### 1. GitHub Repository Setup
-- ✅ Repository created: `curaition/bitcoin-newsletter`
-- ✅ Code pushed to GitHub repository
-- ✅ Repository connected to Railway services
+### 1. Railway CLI Installation
+```bash
+# Install Railway CLI
+curl -fsSL https://railway.com/install.sh | sh
+# OR
+npm i -g @railway/cli
 
-### 2. Railway Project
-- ✅ Project exists: `bitcoin-newsletter` (ID: f672d6bf-ac6b-4d62-9a38-158919110629)
-- ✅ Redis service configured and running
-- ✅ Production environment ready
+# Authenticate
+railway login
+
+# Link to project
+railway link -p 6115f406-107e-45c3-85d4-d720c3638053
+```
+
+### 2. Project Files
+- ✅ `main.py`: Celery entry point for Railway compatibility
+- ✅ `scripts/dev-railway.sh`: Local development script
+- ✅ `scripts/test-railway-tasks.sh`: Task testing script
 
 ## Deployment Architecture
 
-### Services Overview
+### Hybrid Development Model
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Service   │    │ Celery Worker   │    │  Celery Beat    │
-│   (FastAPI)     │    │   (Tasks)       │    │ (Scheduler)     │
-│   Port: 8000    │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │     Redis       │    │   Neon DB       │
-                    │   (Broker)      │    │ (PostgreSQL)    │
-                    └─────────────────┘    └─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    LOCAL DEVELOPMENT                            │
+│  ┌─────────────────┐                                           │
+│  │   Web Service   │  ← You develop here with hot reload       │
+│  │   (FastAPI)     │                                           │
+│  │ localhost:8000  │                                           │
+│  └─────────────────┘                                           │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           │ Uses Railway environment variables
+           │
+┌─────────────────────────────────────────────────────────────────┐
+│                  RAILWAY CLOUD INFRASTRUCTURE                   │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
+│  │ Celery Worker   │  │  Celery Beat    │  │     Redis       │ │
+│  │   (Tasks)       │  │ (Scheduler)     │  │   (Broker)      │ │
+│  │                 │  │                 │  │                 │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           │ Shared database connection
+           │
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL SERVICES                            │
+│  ┌─────────────────┐                    ┌─────────────────┐     │
+│  │   Neon DB       │                    │  CoinDesk API   │     │
+│  │ (PostgreSQL)    │                    │                 │     │
+│  └─────────────────┘                    └─────────────────┘     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Service Configuration
 
-#### 1. Web Service (FastAPI)
-- **Purpose**: HTTP API and health monitoring
-- **Port**: 8000 (public)
-- **Health Check**: `/health`
-- **Start Command**: `uv run uvicorn crypto_newsletter.web.main:app --host 0.0.0.0 --port $PORT --workers 1`
+#### 1. Local Web Service (FastAPI)
+- **Location**: Your local machine
+- **Purpose**: HTTP API development with hot reload
+- **Port**: 8000 (localhost)
+- **Health Check**: `http://localhost:8000/health`
+- **Start Command**: `railway run uvicorn crypto_newsletter.web.main:app --host 0.0.0.0 --port 8000 --reload`
+- **Environment**: Uses Railway environment variables via `railway run`
 
-#### 2. Worker Service (Celery) ✅ DEPLOYED
+#### 2. Railway Worker Service ✅ DEPLOYED
+- **Location**: Railway cloud
 - **Purpose**: Background task processing
 - **Queues**: default, ingestion, monitoring, maintenance
-- **Pool Type**: solo (optimized for Railway containers)
-- **Concurrency**: 1 (solo pool limitation)
-- **Start Command**: `uv run celery -A crypto_newsletter.shared.celery.app worker --loglevel=INFO --concurrency=2 --queues=default,ingestion,monitoring,maintenance --uid=1000`
-- **Status**: ✅ Running and ready for tasks
+- **Concurrency**: 1 (optimized for Railway)
+- **Start Command**: `celery -A main.app worker --concurrency=1 -l INFO`
+- **Status**: ✅ Running and processing tasks
 
-#### 3. Beat Service (Celery Scheduler)
+#### 3. Railway Beat Service ✅ DEPLOYED
+- **Location**: Railway cloud
 - **Purpose**: Periodic task scheduling
 - **Schedule**: Article ingestion every 4 hours, health checks every 5 minutes
-- **Start Command**: `uv run celery -A crypto_newsletter.shared.celery.app beat --loglevel=INFO --pidfile=`
+- **Start Command**: `celery -A main.app beat -l INFO`
+- **Status**: ✅ Running and scheduling tasks
 
-#### 4. Redis Service
+#### 4. Railway Redis Service ✅ DEPLOYED
+- **Location**: Railway cloud
 - **Purpose**: Message broker and result backend
-- **Status**: ✅ Already configured
-- **Connection**: Available via `${{Redis.REDIS_URL}}`
+- **Status**: ✅ Running and connected
+- **Connection**: Available via Railway environment variables
 
 ## Environment Variables
 
-### Shared Variables (All Services)
+### Railway Project Variables (Shared)
 ```bash
+# Database connection
+DATABASE_URL=postgresql://neondb_owner:npg_prKBLEUJ1f8P@ep-purple-firefly-ab009z0a-pooler.eu-west-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+
+# API Keys
+COINDESK_API_KEY=346bed562339e612d8c119b80e25f162386d81bdbe323f381a85eab2f0cb74fb
+
+# Python Configuration
 PYTHONPATH=/app/src
 UV_SYSTEM_PYTHON=1
 PYTHONFAULTHANDLER=1
 PYTHONUNBUFFERED=1
 PYTHONDONTWRITEBYTECODE=1
-DATABASE_URL=${{Neon.DATABASE_URL}}
+
+# Redis URL (automatically provided by Railway Redis service)
 REDIS_URL=${{Redis.REDIS_URL}}
-RAILWAY_ENVIRONMENT=production
 ```
 
-### Service-Specific Variables
+### Local Development
+When you run `railway run`, these variables are automatically available to your local development environment.
+
+## Development Workflow
+
+### Daily Development Process
+
+#### 1. Start Local Development
 ```bash
-# Web Service
-SERVICE_TYPE=web
-PORT=8000
-
-# Worker Service  
-SERVICE_TYPE=worker
-
-# Beat Service
-SERVICE_TYPE=beat
+# Start local web service with Railway infrastructure
+./scripts/dev-railway.sh
 ```
 
-## Deployment Steps
+This script will:
+- ✅ Check Railway CLI installation
+- ✅ Verify project linking
+- ✅ Start local web service at `http://localhost:8000`
+- ✅ Use Railway's environment variables
+- ✅ Connect to Railway's Redis, Worker, and Beat services
 
-### Step 1: Repository Connection
+#### 2. Test Task Execution
 ```bash
-# Connect local repository to GitHub
-git remote add origin https://github.com/curaition/bitcoin-newsletter.git
-git branch -M main
-git push -u origin main
+# Test tasks using Railway infrastructure
+./scripts/test-railway-tasks.sh
 ```
 
-### Step 2: Railway Service Configuration
-The following Railway services are already created and need to be connected to the repository:
+This script will:
+- ✅ Check Celery app configuration
+- ✅ Test database connection
+- ✅ Execute health check tasks
+- ✅ Optionally test article ingestion
 
-1. **Web Service** (ID: 2ca4f993-52fe-40b8-8056-eddfebdadac1)
-2. **Worker Service** (ID: 759ee78c-712e-4709-bff4-5871a7f93892)  
-3. **Beat Service** (ID: a4cdedf4-812f-4b3d-bd56-ab0f47e95fdb)
+#### 3. Monitor Task Processing
+- **Railway Logs**: Check worker and beat service logs in Railway dashboard
+- **Local Logs**: Monitor web service logs in your terminal
+- **Database**: Verify data storage in Neon database
 
-### Step 3: Environment Variables Setup
-All environment variables are configured and ready to be applied once repository access is available.
+### Setup Instructions
 
-### Step 4: Database Migration
+#### First-Time Setup
 ```bash
-# Database migrations will run automatically during deployment
-# via the build command: uv run alembic upgrade head
+# 1. Install Railway CLI
+curl -fsSL https://railway.com/install.sh | sh
+
+# 2. Authenticate with Railway
+railway login
+
+# 3. Link to the project
+railway link -p 6115f406-107e-45c3-85d4-d720c3638053
+
+# 4. Test the connection
+railway status
+
+# 5. Start development
+./scripts/dev-railway.sh
 ```
 
 ## Health Monitoring
