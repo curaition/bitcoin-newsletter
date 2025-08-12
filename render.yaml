@@ -122,6 +122,7 @@ services:
     region: oregon
     plan: starter
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # Allow access from all Render services in this account
 
 # Frontend services will be added later after creating React applications
 # - Backoffice Admin Dashboard (React)
