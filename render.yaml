@@ -116,13 +116,13 @@ services:
       - key: ENABLE_CELERY
         value: "true"
 
+  # Redis service for Celery (PostgreSQL hosted externally on Neon)
+  - type: redis
+    name: bitcoin-newsletter-redis
+    region: oregon
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+
 # Frontend services will be added later after creating React applications
 # - Backoffice Admin Dashboard (React)
 # - Consumer Frontend (React)
-
-databases:
-  # Redis for Celery (PostgreSQL hosted externally on Neon)
-  - name: bitcoin-newsletter-redis
-    databaseName: redis
-    region: oregon
-    plan: starter
