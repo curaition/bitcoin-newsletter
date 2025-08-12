@@ -22,7 +22,8 @@
     "install": {
       "commands": [
         "pip install uv",
-        "uv sync --frozen"
+        "uv sync --frozen",
+        "pip install -e ."
       ],
       "caches": ["pip", "uv"]
     },
@@ -63,13 +64,6 @@
     }
   },
   "deploy": {
-    "base": {
-      "image": "python:3.11-slim"
-    },
-    "inputs": [
-      "...",
-      { "step": "${SERVICE_TYPE:-web}" }
-    ],
     "startCommand": "${START_COMMAND}",
     "variables": {
       "PYTHONPATH": "/app/src"
