@@ -4,7 +4,7 @@ This document provides comprehensive documentation for the Bitcoin Newsletter RE
 
 ## Base URL
 
-- **Production**: `https://web-production-c7d64.up.railway.app`
+- **Production**: `https://bitcoin-newsletter-api.onrender.com`
 - **Development**: `http://localhost:8000`
 
 ## Authentication
@@ -372,7 +372,7 @@ import requests
 
 # Get recent articles
 response = requests.get(
-    "https://web-production-c7d64.up.railway.app/api/articles",
+    "https://bitcoin-newsletter-api.onrender.com/api/articles",
     params={
         "limit": 10,
         "hours": 24,
@@ -389,7 +389,7 @@ for article in articles:
 
 ```javascript
 // Fetch recent Bitcoin articles
-fetch('https://web-production-c7d64.up.railway.app/api/articles?category=BTC&limit=5')
+fetch('https://bitcoin-newsletter-api.onrender.com/api/articles?category=BTC&limit=5')
   .then(response => response.json())
   .then(data => {
     data.data.articles.forEach(article => {
@@ -402,13 +402,13 @@ fetch('https://web-production-c7d64.up.railway.app/api/articles?category=BTC&lim
 
 ```bash
 # Get system health
-curl -X GET "https://web-production-c7d64.up.railway.app/health/detailed"
+curl -X GET "https://bitcoin-newsletter-api.onrender.com/health/detailed"
 
 # Get recent articles
-curl -X GET "https://web-production-c7d64.up.railway.app/api/articles?limit=5&hours=24"
+curl -X GET "https://bitcoin-newsletter-api.onrender.com/api/articles?limit=5&hours=24"
 
 # Get specific article
-curl -X GET "https://web-production-c7d64.up.railway.app/api/articles/1"
+curl -X GET "https://bitcoin-newsletter-api.onrender.com/api/articles/1"
 ```
 
 ## Webhooks (Future)

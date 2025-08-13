@@ -6,7 +6,7 @@ This document provides a detailed overview of the Bitcoin Newsletter system arch
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Railway Platform                         │
+│                        Render Platform                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
 │  │ Web Service │  │   Worker    │  │    Beat     │  │  Redis  │ │
@@ -59,7 +59,7 @@ src/crypto_newsletter/web/
 ```
 
 **Scaling Strategy:**
-- Horizontal scaling via Railway
+- Horizontal scaling via Render
 - Stateless design for easy replication
 - Database connection pooling
 - Redis-based caching
@@ -269,18 +269,18 @@ CELERY_TASK_COMPRESSION = 'gzip'
 
 ## Deployment Architecture
 
-### Railway Platform
+### Render Platform
 
 **Service Configuration:**
-```toml
-# railway.toml
-[build]
-builder = "nixpacks"
-
-[deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"
+```yaml
+# render.yaml
+services:
+  - type: web
+    name: bitcoin-newsletter-api
+    env: python
+    buildCommand: "pip install -e ."
+    startCommand: "crypto-newsletter serve --host 0.0.0.0 --port $PORT"
+    healthCheckPath: "/health"
 
 [[services]]
 name = "web"
@@ -304,7 +304,7 @@ image = "redis:7-alpine"
 
 **Environment Management:**
 - **Development**: Local development with hot reload
-- **Preview**: Railway preview deployments for PRs
+- **Preview**: Render preview deployments for PRs
 - **Production**: Multi-service production deployment
 
 ### Infrastructure Components
@@ -315,7 +315,7 @@ image = "redis:7-alpine"
 - Automated backups and point-in-time recovery
 - Branch-based development workflows
 
-**Railway Redis:**
+**Render Redis:**
 - Managed Redis instance
 - High availability and persistence
 - Memory optimization and eviction policies
@@ -352,7 +352,7 @@ async def get_articles(request: Request, query: ArticleQuery):
 ### Network Security
 
 **HTTPS Enforcement:**
-- TLS termination at Railway edge
+- TLS termination at Render edge
 - Secure headers (HSTS, CSP, etc.)
 - CORS configuration for cross-origin requests
 
@@ -409,7 +409,7 @@ logger.configure(
 ```
 
 **Log Aggregation:**
-- Centralized logging via Railway
+- Centralized logging via Render
 - Log retention and rotation
 - Error tracking and alerting
 - Performance monitoring
@@ -422,7 +422,7 @@ logger.configure(
 - Web service: Scale based on HTTP traffic
 - Worker service: Scale based on queue depth
 - Beat service: Single instance (leader election)
-- Redis: Managed scaling by Railway
+- Redis: Managed scaling by Render
 
 **Database Scaling:**
 - Neon auto-scaling based on demand

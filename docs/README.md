@@ -29,6 +29,7 @@ The Bitcoin Newsletter is now live and operational with:
 ### Operations & Deployment
 - **[Render Deployment Success](RENDER_DEPLOYMENT_SUCCESS.md)** - Complete deployment status and achievements
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment procedures and best practices
+- **[Neon Database Reference](NEON_DATABASE_REFERENCE.md)** - Complete database schema and table documentation
 - **[Monitoring & Logging](MONITORING.md)** - Comprehensive monitoring, logging, and observability
 
 ## 🚀 Quick Start
