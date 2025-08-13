@@ -111,21 +111,44 @@ def start_worker(
 def start_beat(loglevel: str = "INFO", **kwargs) -> None:
     """
     Start Celery beat scheduler.
-    
+
     Args:
         loglevel: Logging level for the beat scheduler
         **kwargs: Additional beat options
     """
+    import sys
+    import os
+
     setup_signal_handlers()
-    
+
     logger.info("Starting Celery beat scheduler")
-    
-    # Start the beat scheduler
-    app.worker_main([
+
+    # Ensure Django is set up for beat scheduler
+    try:
+        from crypto_newsletter.shared.django_minimal import setup_django
+        setup_django()
+        logger.info("Django setup completed for beat scheduler")
+    except Exception as e:
+        logger.warning(f"Could not setup Django for beat scheduler: {e}")
+
+    # Set SERVICE_TYPE environment variable for beat
+    os.environ["SERVICE_TYPE"] = "beat"
+
+    # Start the beat scheduler using subprocess to avoid argv issues
+    cmd = [
+        sys.executable, "-m", "celery",
+        "-A", "crypto_newsletter.shared.celery.app:celery_app",
         "beat",
         f"--loglevel={loglevel}",
         "--pidfile=",  # Disable pidfile for Railway
-    ] + [f"--{k}={v}" for k, v in kwargs.items()])
+    ]
+
+    # Add additional kwargs as command line arguments
+    for k, v in kwargs.items():
+        cmd.extend([f"--{k}", str(v)])
+
+    logger.info(f"Executing: {' '.join(cmd)}")
+    os.execvp(sys.executable, cmd)
 
 
 def start_flower(port: int = 5555, **kwargs) -> None:
