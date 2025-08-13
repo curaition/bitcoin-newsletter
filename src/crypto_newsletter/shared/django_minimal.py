@@ -27,12 +27,15 @@ def setup_django():
     
     # Parse DATABASE_URL for Django format
     database_url = app_settings.database_url
-    
+
     # Extract database components from URL
-    # Format: postgresql://user:password@host:port/database
-    if database_url.startswith('postgresql://'):
-        # Remove protocol
-        url_parts = database_url.replace('postgresql://', '')
+    # Format: postgresql://user:password@host:port/database or postgresql+asyncpg://...
+    if database_url.startswith('postgresql://') or database_url.startswith('postgresql+asyncpg://'):
+        # Remove protocol (handle both formats)
+        if database_url.startswith('postgresql+asyncpg://'):
+            url_parts = database_url.replace('postgresql+asyncpg://', '')
+        else:
+            url_parts = database_url.replace('postgresql://', '')
         
         # Split user:password@host:port/database
         if '@' in url_parts:

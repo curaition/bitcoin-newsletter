@@ -117,8 +117,8 @@ def create_celery_app() -> Celery:
             },
         },
 
-        # Beat scheduler configuration - use database scheduler to avoid dbm dependency
-        beat_scheduler='django_celery_beat.schedulers:DatabaseScheduler',
+        # Beat scheduler configuration - only use database scheduler for beat service
+        beat_scheduler='django_celery_beat.schedulers:DatabaseScheduler' if settings.service_type == "beat" else 'celery.beat:PersistentScheduler',
 
         # Monitoring and logging
         worker_send_task_events=True,
