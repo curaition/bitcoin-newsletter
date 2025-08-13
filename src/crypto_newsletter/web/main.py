@@ -169,10 +169,8 @@ def start_server(
     if settings.is_production:
         config.update({
             "workers": workers,
-            "worker_class": "uvicorn.workers.UvicornWorker",
-            "keepalive": 2,
-            "max_requests": 1000,
-            "max_requests_jitter": 100,
+            "access_log": False,
+            "use_colors": False,
         })
     
     uvicorn.run(**config)
