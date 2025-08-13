@@ -1,42 +1,33 @@
 # Deployment Guide
 
-This guide covers deployment procedures for the Bitcoin Newsletter application across different environments.
+This guide covers the successful deployment of the Bitcoin Newsletter application on Render.
 
 ## Overview
 
-The Bitcoin Newsletter application is deployed on Railway with a multi-service architecture:
+The Bitcoin Newsletter application is successfully deployed on Render with a multi-service architecture:
 
-- **Web Service**: FastAPI application serving REST API
-- **Worker Service**: Celery workers for background processing
-- **Beat Service**: Celery beat scheduler for periodic tasks
-- **Redis Service**: Message broker and caching layer
-- **Database**: Neon PostgreSQL (external service)
+- **Web Service (bitcoin-newsletter-api)**: FastAPI application serving REST API ✅ Deployed
+- **Worker Service (bitcoin-newsletter-worker)**: Celery workers for background processing ✅ Deployed
+- **Beat Service (bitcoin-newsletter-beat)**: Celery beat scheduler for periodic tasks ✅ Deployed
+- **Redis Service (bitcoin-newsletter-redis)**: Message broker and caching layer ✅ Available
+- **Database**: Neon PostgreSQL (external service) ✅ Connected with 29+ articles
 
-## Prerequisites
+## Production Deployment Status ✅
 
-### Required Tools
+### Successfully Deployed Services
 
-1. **Railway CLI**
-   ```bash
-   npm install -g @railway/cli
-   railway login
-   ```
+The Bitcoin Newsletter is now fully operational on Render with the following services:
 
-2. **Git**
-   ```bash
-   git --version  # Ensure Git is installed
-   ```
+1. **Render Account**: https://render.com ✅ Active
+2. **Neon Account**: https://neon.tech ✅ Connected
+3. **GitHub Repository**: https://github.com/curaition/bitcoin-newsletter ✅ Deployed
 
-3. **UV (for local development)**
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+### Service URLs
 
-### Required Accounts
-
-1. **Railway Account**: https://railway.app
-2. **Neon Account**: https://neon.tech
-3. **GitHub Account**: For repository hosting
+- **API**: https://bitcoin-newsletter-api.onrender.com
+- **Health Check**: https://bitcoin-newsletter-api.onrender.com/health
+- **API Documentation**: https://bitcoin-newsletter-api.onrender.com/docs (disabled in production)
+- **Admin Status**: https://bitcoin-newsletter-api.onrender.com/admin/status
 
 ## Environment Configuration
 

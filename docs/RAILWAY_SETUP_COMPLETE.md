@@ -1,8 +1,16 @@
-# 🎉 Railway Development Environment - Setup Complete!
+# ⚠️ DEPRECATED - Railway Development Environment
 
-## Overview
+## 🔄 Migration Notice
 
-Your **NEW SIMPLIFIED** Railway development environment is now ready! This setup eliminates the complexity you were experiencing with Railway deployments while providing a robust, scalable development environment.
+**This document is deprecated.** The Bitcoin Newsletter has been successfully migrated from Railway to Render.
+
+**👉 See current deployment status: [Render Deployment Success](RENDER_DEPLOYMENT_SUCCESS.md)**
+
+---
+
+## Historical Railway Setup (Deprecated)
+
+This Railway development environment was used during initial development but has since been replaced with a production Render deployment.
 
 ## ✅ What's Been Implemented
 

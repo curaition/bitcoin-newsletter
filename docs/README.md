@@ -2,6 +2,18 @@
 
 Welcome to the comprehensive documentation for the Bitcoin Newsletter application - a production-ready cryptocurrency news aggregation and analysis system.
 
+## 🎉 Production Deployment Status
+
+**✅ SUCCESSFULLY DEPLOYED ON RENDER**
+
+The Bitcoin Newsletter is now live and operational with:
+- **4 Render Services**: All deployed and running
+- **29+ Articles**: Automatically ingested and growing every 4 hours
+- **API Endpoints**: https://bitcoin-newsletter-api.onrender.com
+- **Real-time Monitoring**: Health checks and admin controls active
+
+**[View Deployment Success Details →](RENDER_DEPLOYMENT_SUCCESS.md)**
+
 ## 📚 Documentation Index
 
 ### Getting Started
@@ -15,9 +27,9 @@ Welcome to the comprehensive documentation for the Bitcoin Newsletter applicatio
 - **[Testing](TESTING.md)** - Testing framework, strategies, and best practices
 
 ### Operations & Deployment
+- **[Render Deployment Success](RENDER_DEPLOYMENT_SUCCESS.md)** - Complete deployment status and achievements
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment procedures and best practices
 - **[Monitoring & Logging](MONITORING.md)** - Comprehensive monitoring, logging, and observability
-- **[Maintenance](MAINTENANCE.md)** - Routine maintenance procedures and troubleshooting
 
 ## 🚀 Quick Start
 
@@ -35,23 +47,31 @@ Welcome to the comprehensive documentation for the Bitcoin Newsletter applicatio
 
 ### For Operations Teams
 ```bash
-# Deploy to production
-./scripts/deploy-production.sh deploy
+# Check production system health
+curl https://bitcoin-newsletter-api.onrender.com/health
 
-# Monitor system health
-./scripts/monitor.sh health
+# Monitor system status
+curl https://bitcoin-newsletter-api.onrender.com/admin/status
 
-# Check system status
-./scripts/monitor.sh status
+# View database statistics
+curl https://bitcoin-newsletter-api.onrender.com/admin/stats
+
+# Trigger manual article ingestion
+curl -X POST https://bitcoin-newsletter-api.onrender.com/admin/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 5, "hours_back": 24}'
 ```
 
 ### For API Users
 ```bash
 # Get recent Bitcoin articles
-curl "https://web-production-c7d64.up.railway.app/api/articles?category=BTC&limit=10"
+curl "https://bitcoin-newsletter-api.onrender.com/api/articles?limit=10"
+
+# Get articles by category
+curl "https://bitcoin-newsletter-api.onrender.com/api/articles?category=BTC&limit=5"
 
 # Check system health
-curl "https://web-production-c7d64.up.railway.app/health/detailed"
+curl "https://bitcoin-newsletter-api.onrender.com/health"
 ```
 
 ## 🏗️ System Overview

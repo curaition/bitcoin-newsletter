@@ -1,8 +1,16 @@
-# Railway Development Guide
+# ⚠️ DEPRECATED - Railway Development Guide
 
-## 🚀 New Simplified Development Environment
+## 🔄 Migration Notice
 
-This guide covers the **NEW HYBRID DEVELOPMENT APPROACH** using Railway's cloud infrastructure for background processing while maintaining local development flexibility.
+**This document is deprecated.** The Bitcoin Newsletter has been successfully migrated from Railway to Render.
+
+**👉 See current deployment status: [Render Deployment Success](RENDER_DEPLOYMENT_SUCCESS.md)**
+
+---
+
+## Historical Railway Development (Deprecated)
+
+This guide was used for Railway-based development but has been superseded by our successful Render deployment.
 
 ## Overview
 

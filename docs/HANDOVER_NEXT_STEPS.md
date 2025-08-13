@@ -1,59 +1,55 @@
-# Bitcoin Newsletter - Railway Development Environment
+# Bitcoin Newsletter - Production Deployment Success
 
-## 🎯 Current Status (As of 2025-08-12)
+## 🎯 Current Status (As of 2025-08-13)
 
-### ✅ NEW SIMPLIFIED DEPLOYMENT COMPLETED
-- **Railway Project**: `proactive-alignment` (ID: 6115f406-107e-45c3-85d4-d720c3638053)
-- **Celery Worker**: ✅ Running and processing tasks on Railway
-- **Celery Beat**: ✅ Running and scheduling tasks on Railway
-- **Redis Service**: ✅ Connected and operational on Railway
-- **Neon Database**: ✅ Connected and operational (shared)
-- **Environment Variables**: ✅ All configured in Railway
-- **Local Development**: ✅ Ready for hybrid development
+### ✅ RENDER PRODUCTION DEPLOYMENT COMPLETED
+- **Render Services**: 4 services deployed and operational
+  - **bitcoin-newsletter-api**: ✅ FastAPI web service
+  - **bitcoin-newsletter-worker**: ✅ Celery background worker
+  - **bitcoin-newsletter-beat**: ✅ Celery task scheduler
+  - **bitcoin-newsletter-redis**: ✅ Redis cache and message broker
+- **Neon Database**: ✅ Connected with 29+ articles and growing
+- **Automated Ingestion**: ✅ Running every 4 hours
+- **API Endpoints**: ✅ All functional and tested
 
-### 🚀 Development Approach
-- **Local Web Service**: FastAPI with hot reload
-- **Cloud Task Processing**: Worker and Beat on Railway
-- **Shared Database**: Neon PostgreSQL
-- **Simplified Workflow**: No complex multi-service management
+### 🚀 Production Architecture
+- **Web Service**: FastAPI serving REST API at https://bitcoin-newsletter-api.onrender.com
+- **Background Processing**: Celery workers processing tasks automatically
+- **Task Scheduling**: Automated article ingestion every 4 hours
+- **Database**: Neon PostgreSQL with AI-ready vector extensions
+- **Monitoring**: Real-time health checks and admin controls
 
 ---
 
-## Quick Start Guide
+## Production System Access
 
-### 1. Setup Railway CLI
+### 1. API Endpoints
 ```bash
-# Install Railway CLI
-curl -fsSL https://railway.com/install.sh | sh
+# Health check
+curl https://bitcoin-newsletter-api.onrender.com/health
 
-# Authenticate
-railway login
+# System status
+curl https://bitcoin-newsletter-api.onrender.com/admin/status
 
-# Link to the new project
-railway link -p 6115f406-107e-45c3-85d4-d720c3638053
+# Database statistics
+curl https://bitcoin-newsletter-api.onrender.com/admin/stats
 
-# Verify connection
-railway status
+# Get recent articles
+curl "https://bitcoin-newsletter-api.onrender.com/api/articles?limit=10"
 ```
 
-### 2. Start Local Development
+### 2. Manual Operations
 ```bash
-# Start local web service with Railway infrastructure
-./scripts/dev-railway.sh
+# Trigger manual article ingestion
+curl -X POST https://bitcoin-newsletter-api.onrender.com/admin/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 5, "hours_back": 24}'
 ```
 
-Your development server will be available at: `http://localhost:8000`
-
-### 3. Test Task Execution
-```bash
-# Test tasks using Railway infrastructure
-./scripts/test-railway-tasks.sh
-```
-
-This will test:
-- Database connection
-- Health check tasks
-- Article ingestion (optional)
+### 3. Monitoring
+- **Render Dashboard**: Monitor all 4 services
+- **Neon Dashboard**: Monitor database performance
+- **API Health**: Use `/health` and `/admin/status` endpoints
 
 ## Development Workflow
 

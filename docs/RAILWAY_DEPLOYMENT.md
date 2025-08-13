@@ -1,8 +1,16 @@
-# Railway Deployment Guide
+# ⚠️ DEPRECATED - Railway Deployment Guide
 
-## Overview
+## 🔄 Migration Notice
 
-This guide covers the **NEW SIMPLIFIED** Bitcoin Newsletter deployment using Railway's cloud infrastructure for background processing while maintaining local development flexibility.
+**This document is deprecated.** The Bitcoin Newsletter has been successfully migrated from Railway to Render.
+
+**👉 See current deployment status: [Render Deployment Success](RENDER_DEPLOYMENT_SUCCESS.md)**
+
+---
+
+## Historical Railway Deployment (Deprecated)
+
+This guide was used for Railway deployment but has been superseded by our successful Render deployment.
 
 ## 🚀 Current Deployment: "proactive-alignment"
 
