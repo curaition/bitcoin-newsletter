@@ -7,9 +7,8 @@ services:
     plan: starter
     buildCommand: |
       python -m pip install --upgrade pip
-      pip install uv
-      uv pip install -e .
-    startCommand: "uv run crypto-newsletter serve --host 0.0.0.0 --port $PORT"
+      pip install -e .
+    startCommand: "crypto-newsletter serve --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
         value: "postgresql+asyncpg://neondb_owner:npg_prKBLEUJ1f8P@ep-purple-firefly-ab009z0a-pooler.eu-west-2.aws.neon.tech/neondb"
@@ -30,6 +29,8 @@ services:
         value: "false"
       - key: ENABLE_CELERY
         value: "true"
+      - key: PYTHONPATH
+        value: "/opt/render/project/repo/src"
     healthCheckPath: "/health"
 
   # Celery Worker Service
@@ -40,9 +41,8 @@ services:
     plan: starter
     buildCommand: |
       python -m pip install --upgrade pip
-      pip install uv
-      uv pip install -e .
-    startCommand: "uv run crypto-newsletter worker"
+      pip install -e .
+    startCommand: "crypto-newsletter worker"
     envVars:
       - key: DATABASE_URL
         value: "postgresql+asyncpg://neondb_owner:npg_prKBLEUJ1f8P@ep-purple-firefly-ab009z0a-pooler.eu-west-2.aws.neon.tech/neondb"
@@ -73,6 +73,8 @@ services:
         value: "false"
       - key: ENABLE_CELERY
         value: "true"
+      - key: PYTHONPATH
+        value: "/opt/render/project/repo/src"
 
   # Celery Beat Scheduler Service
   - type: worker
@@ -82,9 +84,8 @@ services:
     plan: starter
     buildCommand: |
       python -m pip install --upgrade pip
-      pip install uv
-      uv pip install -e .
-    startCommand: "uv run crypto-newsletter beat"
+      pip install -e .
+    startCommand: "crypto-newsletter beat"
     envVars:
       - key: DATABASE_URL
         value: "postgresql+asyncpg://neondb_owner:npg_prKBLEUJ1f8P@ep-purple-firefly-ab009z0a-pooler.eu-west-2.aws.neon.tech/neondb"
@@ -115,6 +116,8 @@ services:
         value: "false"
       - key: ENABLE_CELERY
         value: "true"
+      - key: PYTHONPATH
+        value: "/opt/render/project/repo/src"
 
   # Redis service for Celery (PostgreSQL hosted externally on Neon)
   - type: redis
