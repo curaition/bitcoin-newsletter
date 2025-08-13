@@ -8,7 +8,7 @@ services:
     buildCommand: |
       python -m pip install --upgrade pip
       pip install -e .
-    startCommand: "crypto-newsletter serve --host 0.0.0.0 --port $PORT"
+    startCommand: "crypto-newsletter serve --production --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
         value: "postgresql+asyncpg://neondb_owner:npg_prKBLEUJ1f8P@ep-purple-firefly-ab009z0a-pooler.eu-west-2.aws.neon.tech/neondb"
