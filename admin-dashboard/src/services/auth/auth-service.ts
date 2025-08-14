@@ -131,12 +131,17 @@ class AuthService {
 
     // Mock authentication for development and production demo
     if (authConfig.enableMockAuth) {
-      // Only allow specific client credentials in production
-      if (!import.meta.env.DEV &&
-          (emailAddress !== authConfig.clientEmail || password !== authConfig.clientPassword)) {
+      // In development, allow any credentials
+      if (import.meta.env.DEV) {
+        return this.mockSignIn(emailAddress, password);
+      }
+
+      // In production, only allow specific client credentials
+      if (emailAddress === authConfig.clientEmail && password === authConfig.clientPassword) {
+        return this.mockSignIn(emailAddress, password);
+      } else {
         throw new AuthError('invalid_credentials', 'Invalid email or password');
       }
-      return this.mockSignIn(emailAddress, password);
     }
 
     if (password.length < 6) {
