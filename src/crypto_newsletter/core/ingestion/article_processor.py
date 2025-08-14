@@ -9,6 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from crypto_newsletter.shared.models import Article, ArticleCategory, Category, Publisher
+from crypto_newsletter.shared.utils.language_detection import (
+    validate_article_language,
+    should_filter_article
+)
 
 
 class ArticleProcessor:
@@ -38,6 +42,18 @@ class ArticleProcessor:
 
         for article_data in articles:
             try:
+                # Validate and correct language
+                article_data = validate_article_language(article_data)
+
+                # Filter out non-English articles
+                if should_filter_article(article_data, allowed_languages=['EN']):
+                    skipped_count += 1
+                    logger.info(
+                        f"Skipping non-English article: {article_data.get('ID')} "
+                        f"(Language: {article_data.get('LANG')})"
+                    )
+                    continue
+
                 # Check if article already exists
                 if await self._article_exists(article_data):
                     skipped_count += 1
