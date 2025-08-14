@@ -300,12 +300,36 @@ def get_task_status(task_id: str) -> Dict[str, Any]:
 def get_active_tasks() -> Dict[str, Any]:
     """Get information about currently active tasks."""
     inspect = celery_app.control.inspect()
-    
-    return {
-        "active": inspect.active(),
-        "scheduled": inspect.scheduled(),
-        "reserved": inspect.reserved(),
-    }
+
+    try:
+        # Get raw data from Celery
+        active_raw = inspect.active() or {}
+        scheduled_raw = inspect.scheduled() or {}
+        reserved_raw = inspect.reserved() or {}
+
+        # Sanitize data to prevent React serialization errors
+        def count_tasks(task_dict):
+            """Count total tasks across all workers."""
+            if not task_dict:
+                return 0
+            total = 0
+            for worker_tasks in task_dict.values():
+                if isinstance(worker_tasks, list):
+                    total += len(worker_tasks)
+            return total
+
+        return {
+            "active": count_tasks(active_raw),
+            "scheduled": count_tasks(scheduled_raw),
+            "reserved": count_tasks(reserved_raw),
+        }
+    except Exception as e:
+        logger.warning(f"Failed to get active tasks: {e}")
+        return {
+            "active": 0,
+            "scheduled": 0,
+            "reserved": 0,
+        }
 
 
 def cancel_task(task_id: str) -> bool:
