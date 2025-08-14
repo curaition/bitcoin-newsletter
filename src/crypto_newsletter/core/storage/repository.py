@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, select, text, or_, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -209,6 +209,99 @@ class ArticleRepository:
 
         except Exception as e:
             logger.error(f"Failed to get recent articles: {e}")
+            raise
+
+    async def get_articles_with_filters(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        publisher_id: Optional[int] = None,
+        publisher_name: Optional[str] = None,
+        hours_back: Optional[int] = None,
+        search_query: Optional[str] = None,
+        status: Optional[str] = "ACTIVE",
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        order_by: Optional[str] = "published_on",
+        order: Optional[str] = "desc",
+    ) -> List[Dict[str, Any]]:
+        """Get articles with comprehensive filtering and search."""
+        try:
+            query = select(Article).join(Publisher, isouter=True)
+
+            # Base filter
+            filters = []
+            if status:
+                filters.append(Article.status == status)
+
+            # Publisher filters
+            if publisher_id:
+                filters.append(Article.publisher_id == publisher_id)
+            elif publisher_name:
+                filters.append(Publisher.name.ilike(f"%{publisher_name}%"))
+
+            # Date filters
+            if hours_back:
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+                filters.append(Article.published_on >= cutoff)
+
+            if start_date:
+                try:
+                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                    filters.append(Article.published_on >= start_dt)
+                except ValueError:
+                    logger.warning(f"Invalid start_date format: {start_date}")
+
+            if end_date:
+                try:
+                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                    filters.append(Article.published_on <= end_dt)
+                except ValueError:
+                    logger.warning(f"Invalid end_date format: {end_date}")
+
+            # Search filter
+            if search_query:
+                search_filter = or_(
+                    Article.title.ilike(f"%{search_query}%"),
+                    Article.body.ilike(f"%{search_query}%"),
+                    Article.subtitle.ilike(f"%{search_query}%")
+                )
+                filters.append(search_filter)
+
+            # Apply all filters
+            if filters:
+                query = query.where(and_(*filters))
+
+            # Ordering
+            order_column = getattr(Article, order_by, Article.published_on)
+            if order.lower() == "asc":
+                query = query.order_by(asc(order_column))
+            else:
+                query = query.order_by(desc(order_column))
+
+            # Pagination
+            query = query.offset(offset).limit(limit)
+
+            result = await self.db.execute(query)
+            articles = result.scalars().all()
+
+            return [
+                {
+                    "id": article.id,
+                    "external_id": article.external_id,
+                    "title": article.title,
+                    "subtitle": article.subtitle,
+                    "url": article.url,
+                    "published_on": article.published_on.isoformat() if article.published_on else None,
+                    "publisher_id": article.publisher_id,
+                    "language": article.language,
+                    "status": article.status,
+                }
+                for article in articles
+            ]
+
+        except Exception as e:
+            logger.error(f"Failed to get articles with filters: {e}")
             raise
 
     async def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:

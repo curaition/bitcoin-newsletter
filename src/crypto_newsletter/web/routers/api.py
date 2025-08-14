@@ -51,7 +51,14 @@ async def get_articles(
     limit: int = Query(10, description="Maximum number of articles to return", le=100),
     offset: int = Query(0, description="Number of articles to skip"),
     publisher_id: Optional[int] = Query(None, description="Filter by publisher ID"),
+    publisher: Optional[str] = Query(None, description="Filter by publisher name"),
     hours_back: Optional[int] = Query(None, description="Filter by hours back from now"),
+    search: Optional[str] = Query(None, description="Search in title and content"),
+    status: Optional[str] = Query("ACTIVE", description="Filter by article status"),
+    start_date: Optional[str] = Query(None, description="Filter by start date (ISO 8601)"),
+    end_date: Optional[str] = Query(None, description="Filter by end date (ISO 8601)"),
+    order_by: Optional[str] = Query("published_on", description="Order by field"),
+    order: Optional[str] = Query("desc", description="Order direction (asc/desc)"),
     api_key: Optional[str] = Security(get_api_key),
 ) -> List[ArticleResponse]:
     """
@@ -70,13 +77,20 @@ async def get_articles(
     try:
         async with get_db_session() as db:
             repo = ArticleRepository(db)
-            
+
             # Get articles with filters
-            articles = await repo.get_recent_articles(
+            articles = await repo.get_articles_with_filters(
                 limit=limit,
                 offset=offset,
                 publisher_id=publisher_id,
+                publisher_name=publisher,
                 hours_back=hours_back,
+                search_query=search,
+                status=status,
+                start_date=start_date,
+                end_date=end_date,
+                order_by=order_by,
+                order=order,
             )
             
             # Convert to response models
