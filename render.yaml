@@ -137,10 +137,8 @@ services:
     buildCommand: |
       cd admin-dashboard
       npm install
-      npm install -g serve
-      cp .env.production .env.local
       npm run build
-    startCommand: "cd admin-dashboard && npx serve -s dist -l $PORT"
+    startCommand: "cd admin-dashboard && npm run preview -- --host 0.0.0.0 --port $PORT"
     envVars:
       - key: VITE_API_URL
         value: "https://bitcoin-newsletter-api.onrender.com"
