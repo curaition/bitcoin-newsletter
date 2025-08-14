@@ -7,6 +7,7 @@
 import type { User, LoginRequest, LoginResponse } from '../../../../shared/types/api';
 import { apiClient, setAuthToken, getAuthToken } from '../api/client';
 import { isValidEmail } from '../../../../shared/utils/api-helpers';
+import { authConfig } from '../../utils/env';
 
 export interface AuthState {
   user: User | null;
@@ -128,8 +129,13 @@ class AuthService {
       throw new AuthError('invalid_email', 'Please enter a valid email address');
     }
 
-    // Mock authentication for development
-    if (import.meta.env.DEV) {
+    // Mock authentication for development and production demo
+    if (authConfig.enableMockAuth) {
+      // Only allow specific client credentials in production
+      if (!import.meta.env.DEV &&
+          (emailAddress !== authConfig.clientEmail || password !== authConfig.clientPassword)) {
+        throw new AuthError('invalid_credentials', 'Invalid email or password');
+      }
       return this.mockSignIn(emailAddress, password);
     }
 

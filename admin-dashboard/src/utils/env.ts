@@ -22,6 +22,13 @@ export const config: AppConfig = {
   debug: import.meta.env.DEV,
 };
 
+// Authentication configuration
+export const authConfig = {
+  enableMockAuth: getOptionalEnvVar('VITE_ENABLE_MOCK_AUTH', 'false') === 'true' || import.meta.env.DEV,
+  clientEmail: 'demo@bitcoin-newsletter.com',
+  clientPassword: 'demo2025',
+};
+
 // Validation
 if (!['development', 'staging', 'production'].includes(config.environment)) {
   throw new Error(`Invalid environment: ${config.environment}`);
