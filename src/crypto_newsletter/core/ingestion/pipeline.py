@@ -30,7 +30,7 @@ class ArticleIngestionPipeline:
 
     async def run_full_ingestion(
         self,
-        limit: int = 50,
+        limit: Optional[int] = 50,
         hours_back: int = 24,
         categories: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
@@ -45,6 +45,11 @@ class ArticleIngestionPipeline:
         Returns:
             Dictionary with processing statistics and results
         """
+        # Ensure limit is not None to prevent API errors
+        if limit is None:
+            limit = 50
+            logger.warning("Limit was None, defaulting to 50")
+
         start_time = datetime.now(timezone.utc)
         logger.info(
             f"Starting article ingestion pipeline - "

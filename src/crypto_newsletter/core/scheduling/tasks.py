@@ -36,18 +36,18 @@ class AsyncTask(Task):
 )
 def ingest_articles(
     self,
-    limit: Optional[int] = None,
-    hours_back: int = 4,
+    limit: Optional[int] = 50,
+    hours_back: int = 12,
     categories: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Scheduled task to ingest articles from CoinDesk API.
-    
+
     Args:
-        limit: Maximum number of articles to fetch (None for no limit)
+        limit: Maximum number of articles to fetch (default: 50)
         hours_back: How many hours back to look for articles
         categories: List of categories to filter by (None for all)
-    
+
     Returns:
         Dict with ingestion results and metrics
     """

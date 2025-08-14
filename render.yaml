@@ -19,7 +19,7 @@ services:
           property: connectionString
       - key: COINDESK_API_KEY
         value: "346bed562339e612d8c119b80e25f162386d81bdbe323f381a85eab2f0cb74fb"
-      - key: RAILWAY_ENVIRONMENT
+      - key: ENVIRONMENT
         value: "production"
       - key: SERVICE_TYPE
         value: "web"
@@ -63,7 +63,7 @@ services:
           type: redis
           name: bitcoin-newsletter-redis
           property: connectionString
-      - key: RAILWAY_ENVIRONMENT
+      - key: ENVIRONMENT
         value: "production"
       - key: SERVICE_TYPE
         value: "worker"
@@ -106,7 +106,7 @@ services:
           type: redis
           name: bitcoin-newsletter-redis
           property: connectionString
-      - key: RAILWAY_ENVIRONMENT
+      - key: ENVIRONMENT
         value: "production"
       - key: SERVICE_TYPE
         value: "beat"
@@ -127,6 +127,23 @@ services:
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []  # Allow access from all Render services in this account
 
-# Frontend services will be added later after creating React applications
-# - Backoffice Admin Dashboard (React)
-# - Consumer Frontend (React)
+# Frontend Services
+  # Admin Dashboard (React)
+  - type: web
+    name: bitcoin-newsletter-admin
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: |
+      cd admin-dashboard
+      npm install
+      npm run build
+    startCommand: "cd admin-dashboard && npm run preview -- --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: VITE_API_URL
+        value: "https://bitcoin-newsletter-api.onrender.com"
+      - key: VITE_APP_ENV
+        value: "production"
+      - key: VITE_APP_VERSION
+        value: "1.0.0"
+    healthCheckPath: "/"

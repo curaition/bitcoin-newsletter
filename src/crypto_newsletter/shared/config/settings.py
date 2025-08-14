@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     )
 
     # Environment
-    railway_environment: str = Field(default="development", alias="RAILWAY_ENVIRONMENT")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+    railway_environment: str = Field(
+        default="development", alias="RAILWAY_ENVIRONMENT"
+    )  # Backward compatibility
     service_type: str = Field(default="web", alias="SERVICE_TYPE")
     debug: bool = Field(default=True, alias="DEBUG")
     testing: bool = Field(default=False, alias="TESTING")
@@ -80,14 +83,22 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, alias="PORT")
 
     @property
+    def effective_environment(self) -> str:
+        """Get effective environment (prefer ENVIRONMENT over RAILWAY_ENVIRONMENT)."""
+        # Use ENVIRONMENT if explicitly set, otherwise fall back to RAILWAY_ENVIRONMENT
+        if self.environment != "development":
+            return self.environment
+        return getattr(self, 'railway_environment', 'development')
+
+    @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
-        return self.railway_environment == "production"
+        return self.effective_environment == "production"
 
     @property
     def is_development(self) -> bool:
         """Check if running in development environment."""
-        return self.railway_environment == "development"
+        return self.effective_environment == "development"
 
     @property
     def effective_celery_broker_url(self) -> str:

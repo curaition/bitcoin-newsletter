@@ -182,6 +182,7 @@ def create_periodic_tasks():
         defaults={
             'crontab': every_4_hours,
             'task': 'crypto_newsletter.core.scheduling.tasks.ingest_articles',
+            'kwargs': '{"hours_back": 12}',
             'enabled': True,
         }
     )

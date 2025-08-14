@@ -1,9 +1,9 @@
 """Admin endpoints for task management and system administration."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from crypto_newsletter.core.storage.repository import ArticleRepository
 from crypto_newsletter.shared.config.settings import get_settings
@@ -21,49 +21,113 @@ router = APIRouter()
 async def admin_status() -> Dict[str, Any]:
     """
     Get overall system status for admin dashboard.
-    
+
     Returns:
         System status and statistics
     """
     try:
         settings = get_settings()
-        
+
         # Get database statistics
         async with get_db_session() as db:
             repo = ArticleRepository(db)
             stats = await repo.get_article_statistics()
-        
-        status = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "service": "crypto-newsletter",
-            "environment": settings.railway_environment,
-            "database": stats,
-            "celery": {"enabled": settings.enable_celery},
+
+        # Add status field to database stats
+        database_status = {
+            "status": "healthy",  # Always healthy if we can connect
+            **stats
         }
-        
+
+        # Initialize Celery status
+        celery_status = {
+            "enabled": settings.enable_celery,
+            "status": "unknown"  # Default status
+        }
+
         # Add Celery status if enabled
         if settings.enable_celery:
             try:
-                from crypto_newsletter.core.scheduling.tasks import get_active_tasks
-                from crypto_newsletter.shared.celery.worker import get_worker_health
-                
+                from crypto_newsletter.core.scheduling.tasks import (
+                    get_active_tasks
+                )
+                from crypto_newsletter.shared.celery.worker import (
+                    get_worker_health
+                )
+
                 worker_health = await get_worker_health()
                 active_tasks = get_active_tasks()
-                
-                status["celery"].update({
+
+                # Determine Celery health status
+                if worker_health and worker_health.get("status") == "healthy":
+                    celery_status["status"] = "healthy"
+                elif worker_health and "error" in worker_health:
+                    celery_status["status"] = "error"
+                else:
+                    celery_status["status"] = "warning"
+
+                celery_status.update({
                     "workers": worker_health,
                     "active_tasks": active_tasks,
                 })
             except Exception as e:
-                status["celery"]["error"] = str(e)
-        
+                celery_status.update({
+                    "status": "error",
+                    "error": str(e)
+                })
+        else:
+            celery_status["status"] = "warning"  # Not enabled
+
+        # Add API status
+        api_status = {
+            "status": "healthy",
+            "version": "1.0.0",
+            "uptime": "running",
+            "environment": settings.railway_environment
+        }
+
+        status = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "crypto-newsletter",
+            "environment": settings.railway_environment,
+            "api": api_status,
+            "database": database_status,
+            "celery": celery_status,
+        }
+
         return status
-        
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get admin status: {e}"
-        )
+        # If we can't connect to database, mark it as error
+        env = "unknown"
+        if 'settings' in locals():
+            env = settings.railway_environment
+
+        api_status = {
+            "status": "healthy",
+            "version": "1.0.0",
+            "uptime": "running",
+            "environment": env
+        }
+
+        database_status = {
+            "status": "error",
+            "error": str(e)
+        }
+
+        celery_status = {
+            "enabled": False,
+            "status": "unknown"
+        }
+
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "crypto-newsletter",
+            "environment": env,
+            "api": api_status,
+            "database": database_status,
+            "celery": celery_status,
+        }
 
 
 @router.post("/tasks/schedule-ingest")

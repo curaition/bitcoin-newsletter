@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Startup
     app_logger.info("Starting Crypto Newsletter API", extra={
-        "environment": settings.railway_environment,
+        "environment": settings.effective_environment,
         "service_type": settings.service_type,
         "debug": settings.debug
     })
@@ -81,15 +81,20 @@ def create_app() -> FastAPI:
         title="Crypto Newsletter API",
         description="Bitcoin newsletter data pipeline and administration API",
         version="1.0.0",
-        docs_url="/docs" if settings.railway_environment == "development" else None,
-        redoc_url="/redoc" if settings.railway_environment == "development" else None,
+        docs_url="/docs" if settings.effective_environment == "development" else None,
+        redoc_url="/redoc" if settings.effective_environment == "development" else None,
         lifespan=lifespan,
     )
     
     # CORS middleware
+    allowed_origins = ["*"] if settings.effective_environment == "development" else [
+        "https://bitcoin-newsletter-admin.onrender.com",  # Production frontend
+        "http://localhost:3000",  # Development frontend
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if settings.railway_environment == "development" else ["https://yourdomain.com"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -108,8 +113,8 @@ def create_app() -> FastAPI:
             "service": "crypto-newsletter",
             "status": "running",
             "version": "1.0.0",
-            "environment": settings.railway_environment,
-            "docs": "/docs" if settings.railway_environment == "development" else "disabled",
+            "environment": settings.effective_environment,
+            "docs": "/docs" if settings.effective_environment == "development" else "disabled",
         }
 
     # Direct health endpoint for Railway (without trailing slash)
@@ -131,7 +136,7 @@ def create_app() -> FastAPI:
             status_code=500,
             content={
                 "error": "Internal server error",
-                "detail": str(exc) if settings.railway_environment == "development" else "An error occurred",
+                "detail": str(exc) if settings.effective_environment == "development" else "An error occurred",
             }
         )
     
@@ -160,7 +165,7 @@ def start_server(
         "port": port,
         "reload": reload,
         "workers": workers if not reload else 1,  # Reload mode requires single worker
-        "log_level": "debug" if settings.railway_environment == "development" else "info",
+        "log_level": "debug" if settings.effective_environment == "development" else "info",
         "access_log": True,
         "use_colors": True,
     }

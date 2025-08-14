@@ -111,7 +111,7 @@ class LoggingConfig:
                 retention="7 days",
                 compression="gz",
                 enqueue=True,
-                filter=lambda record: record["extra"].get("service") == self.settings.service_type
+                filter=lambda record: record.get("extra", {}).get("service_type") == self.settings.service_type
             )
     
     def _configure_external_loggers(self) -> None:
