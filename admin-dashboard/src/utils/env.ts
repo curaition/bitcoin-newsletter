@@ -45,9 +45,6 @@ export const API_ENDPOINTS = {
 
   // Publishers
   publishers: '/api/publishers',
-
-  // Publishers
-  publishers: '/api/publishers',
   
   // Admin
   adminStatus: '/admin/status',

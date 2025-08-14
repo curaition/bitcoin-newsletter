@@ -8,8 +8,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   Article,
   ArticleListParams,
-  ArticleListResponse,
-  PaginatedArticleListResponse,
   ManualIngestRequest,
   IngestionResult
 } from '../../../../shared/types/api';
@@ -80,9 +78,16 @@ export function useArticleSearch(searchQuery: string, options: Omit<ArticleListP
     queryKey: queryKeys.articleList(params),
     queryFn: () => apiClient.getArticles(params),
     enabled: searchQuery.length >= 2, // Only search with 2+ characters
-    select: (data: ArticleListResponse) => ({
-      articles: data.data,
-      pagination: data.pagination,
+    select: (data: Article[]) => ({
+      articles: data,
+      pagination: {
+        total: data.length,
+        page: 1,
+        limit: data.length,
+        offset: 0,
+        hasNext: false,
+        hasPrevious: false,
+      },
     }),
   });
 }
@@ -99,10 +104,10 @@ export function useInfiniteArticles(params: Omit<ArticleListParams, 'page' | 'of
     queryFn: ({ pageParam = 1 }) =>
       apiClient.getArticles({ ...params, page: pageParam }),
     initialPageParam: 1,
-    getNextPageParam: (lastPage: Article[]) => {
+    getNextPageParam: (lastPage: Article[], allPages) => {
       // Since we get a simple array, estimate if there are more pages
       const limit = params.limit || 20;
-      return lastPage.length === limit ? (params.page || 1) + 1 : undefined;
+      return lastPage.length === limit ? allPages.length + 1 : undefined;
     },
     select: (data) => ({
       pages: data.pages,
@@ -220,7 +225,7 @@ export function useArticleCache() {
     },
     
     // Get cached article list
-    getCachedArticleList: (params: ArticleListParams = {}): ArticleListResponse | undefined => {
+    getCachedArticleList: (params: ArticleListParams = {}): any => {
       return queryClient.getQueryData(queryKeys.articleList(params));
     },
     
@@ -234,14 +239,14 @@ export function useArticleCache() {
       // Update article in list caches
       queryClient.setQueriesData(
         { queryKey: queryKeys.articles, predicate: (query) => query.queryKey[1] === 'list' },
-        (old: ArticleListResponse | undefined) => {
+        (old: any) => {
           if (!old) return old;
-          
+
           return {
             ...old,
-            data: old.data.map(article => 
+            articles: old.articles?.map((article: Article) =>
               article.id === id ? updater(article) : article
-            ),
+            ) || [],
           };
         }
       );

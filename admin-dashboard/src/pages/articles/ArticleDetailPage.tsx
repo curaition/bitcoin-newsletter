@@ -6,13 +6,12 @@
  */
 
 import { useParams, Link } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft,
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -26,7 +25,6 @@ import {
 import { useArticle, useArticleNavigation } from '@/hooks/api/useArticles';
 import { usePublisherLookup } from '@/hooks/api/usePublishers';
 import { formatDistanceToNow } from 'date-fns';
-import type { Article } from '../../../../shared/types/api';
 
 export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -80,18 +78,7 @@ export function ArticleDetailPage() {
     }
   };
 
-  const getSentimentBadge = (sentiment: string) => {
-    switch (sentiment?.toLowerCase()) {
-      case 'positive':
-        return <Badge className="bg-green-100 text-green-800">Positive</Badge>;
-      case 'negative':
-        return <Badge className="bg-red-100 text-red-800">Negative</Badge>;
-      case 'neutral':
-        return <Badge variant="outline">Neutral</Badge>;
-      default:
-        return <Badge variant="outline">{sentiment || 'Unknown'}</Badge>;
-    }
-  };
+
 
 
 
@@ -260,12 +247,7 @@ export function ArticleDetailPage() {
                 <div className="text-base leading-relaxed whitespace-pre-wrap">
                   {article.body || 'No content available'}
                 </div>
-                {article.subtitle && (
-                  <div className="mt-4 p-4 bg-muted rounded-lg">
-                    <h3 className="font-medium mb-2">Subtitle</h3>
-                    <p className="text-sm text-muted-foreground">{article.subtitle}</p>
-                  </div>
-                )}
+
                 {article.keywords && (
                   <div className="mt-4">
                     <h3 className="font-medium mb-2">Keywords</h3>
@@ -305,8 +287,8 @@ export function ArticleDetailPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">External ID</span>
-                <span className="text-sm font-mono">{article.external_id}</span>
+                <span className="text-sm font-medium">Article ID</span>
+                <span className="text-sm font-mono">{article.id}</span>
               </div>
 
               <Separator />
