@@ -168,8 +168,8 @@ def _store_analysis_results_sync(
         if signal_validation
         else [],
         validation_status="COMPLETED" if signal_validation else "PENDING",
-        research_cost=signal_validation.research_cost if signal_validation else 0.0,
-        total_cost=result["costs"]["total"],
+        # research_cost field not in ArticleAnalysis model - cost tracked in processing_metadata
+        # total_cost field not in ArticleAnalysis model - cost tracked in processing_metadata
         processing_metadata=result["processing_metadata"],
         analyzed_at=datetime.utcnow(),
         requires_manual_review=result.get("requires_manual_review", False),
