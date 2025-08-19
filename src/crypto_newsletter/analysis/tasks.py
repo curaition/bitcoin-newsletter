@@ -161,15 +161,13 @@ def _store_analysis_results_sync(
         analysis_confidence=content_analysis.analysis_confidence,
         signal_strength=content_analysis.signal_strength,
         uniqueness_score=content_analysis.uniqueness_score,
-        validation_results=signal_validation.validation_results
+        verified_facts=signal_validation.validation_results
         if signal_validation
         else [],
-        cross_signal_insights=signal_validation.cross_signal_insights
+        research_sources=signal_validation.cross_signal_insights
         if signal_validation
         else [],
-        additional_signals=signal_validation.additional_signals
-        if signal_validation
-        else [],
+        validation_status="COMPLETED" if signal_validation else "PENDING",
         research_cost=signal_validation.research_cost if signal_validation else 0.0,
         total_cost=result["costs"]["total"],
         processing_metadata=result["processing_metadata"],
