@@ -1,6 +1,7 @@
 """Celery tasks for article analysis using PydanticAI agents."""
 
 import asyncio
+import concurrent.futures
 import logging
 from datetime import datetime
 from typing import Any
@@ -110,7 +111,16 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
 
     # Run the async analysis
     try:
-        return asyncio.run(_run_analysis())
+        # Use get_event_loop instead of asyncio.run to avoid event loop conflicts in Celery
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're already in an event loop (Celery worker), create a new task
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _run_analysis())
+                return future.result()
+        else:
+            # If no event loop is running, use asyncio.run
+            return asyncio.run(_run_analysis())
     except Exception as e:
         logger.error(f"Task failed for article {article_id}: {str(e)}")
         # Don't retry on certain errors
@@ -226,4 +236,17 @@ def analyze_recent_articles_task(self, limit: int = 10) -> dict[str, Any]:
                 "task_ids": task_ids,
             }
 
-    return asyncio.run(_run_batch_analysis())
+    # Use get_event_loop instead of asyncio.run to avoid event loop conflicts in Celery
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're already in an event loop (Celery worker), create a new task
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _run_batch_analysis())
+                return future.result()
+        else:
+            # If no event loop is running, use asyncio.run
+            return asyncio.run(_run_batch_analysis())
+    except Exception as e:
+        logger.error(f"Batch analysis task failed: {str(e)}")
+        raise
