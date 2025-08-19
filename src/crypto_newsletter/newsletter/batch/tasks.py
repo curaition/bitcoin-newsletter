@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from crypto_newsletter.analysis.tasks import analyze_article_task
+# analyze_article_task imported inside function to avoid circular imports
 from crypto_newsletter.newsletter.batch.config import BatchProcessingConfig
 from crypto_newsletter.newsletter.batch.identifier import BatchArticleIdentifier
 from crypto_newsletter.newsletter.batch.storage import BatchStorageManager
@@ -82,26 +82,24 @@ def batch_analyze_articles(
                             f"Processing article {article_id} in batch {batch_number}"
                         )
 
-                        # Process individual article using existing analysis task
-                        result = analyze_article_task.delay(article_id)
+                        # Call analysis function directly instead of using Celery task
+                        # This avoids the "Never call result.get() within a task!" error
+                        from crypto_newsletter.analysis.tasks import analyze_article_task
 
-                        # Wait for result with timeout
-                        task_result = result.get(
-                            timeout=BatchProcessingConfig.PROCESSING_TIMEOUT
-                        )
+                        # Get the actual function from the task
+                        task_result = analyze_article_task.run(article_id)
 
                         if task_result.get("success", False):
                             articles_processed += 1
-                            batch_cost += (
-                                BatchProcessingConfig.ESTIMATED_COST_PER_ARTICLE
-                            )
+                            actual_cost = task_result.get("costs", {}).get("total", 0.0)
+                            batch_cost += actual_cost
 
                             results.append(
                                 {
                                     "article_id": article_id,
-                                    "task_id": result.id,
                                     "status": "success",
-                                    "cost": BatchProcessingConfig.ESTIMATED_COST_PER_ARTICLE,
+                                    "cost": actual_cost,
+                                    "signals_found": task_result.get("processing_metadata", {}).get("signals_found", 0),
                                 }
                             )
                         else:
@@ -109,7 +107,6 @@ def batch_analyze_articles(
                             results.append(
                                 {
                                     "article_id": article_id,
-                                    "task_id": result.id,
                                     "status": "failed",
                                     "error": task_result.get("error", "Unknown error"),
                                 }
