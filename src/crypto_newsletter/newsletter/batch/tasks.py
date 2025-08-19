@@ -288,22 +288,24 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                     )
                     batch_records.append(batch_record)
 
-                # Step 7: Launch batches with staggered execution
+                # Step 7: Launch batches immediately (no delays in initiation)
                 batch_tasks = []
                 for i, chunk in enumerate(article_chunks, 1):
-                    # Launch batch processing task
-                    task = batch_analyze_articles.delay(chunk, i, session_id)
+                    # Launch batch processing task with countdown for staggered execution
+                    # Each batch will start with a delay based on its number
+                    countdown = (i - 1) * BatchProcessingConfig.BATCH_DELAY
+                    task = batch_analyze_articles.apply_async(
+                        args=[chunk, i, session_id],
+                        countdown=countdown
+                    )
                     batch_tasks.append(
                         {
                             "batch_number": i,
                             "task_id": task.id,
                             "article_count": len(chunk),
+                            "scheduled_delay": countdown,
                         }
                     )
-
-                    # Stagger batch execution to manage system load
-                    if i < len(article_chunks):  # Don't sleep after last batch
-                        time.sleep(BatchProcessingConfig.BATCH_DELAY)
 
                 processing_time = (datetime.utcnow() - initiation_start).total_seconds()
 
