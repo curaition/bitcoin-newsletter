@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from crypto_newsletter.shared.celery.app import celery_app
+from crypto_newsletter.shared.database.connection import get_db_session
 from crypto_newsletter.shared.models import Article, ArticleAnalysis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,7 +40,7 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
     async def _run_analysis() -> dict[str, Any]:
         """Internal async function to run the analysis."""
 
-        async with get_async_session() as db:
+        async with get_db_session() as db:
             try:
                 # Get article from database
                 article = await db.get(Article, article_id)
@@ -184,7 +185,7 @@ def analyze_recent_articles_task(self, limit: int = 10) -> dict[str, Any]:
     async def _run_batch_analysis() -> dict[str, Any]:
         """Internal async function for batch analysis."""
 
-        async with get_async_session() as db:
+        async with get_db_session() as db:
             # Get unanalyzed articles
             from sqlalchemy import and_, select
 
