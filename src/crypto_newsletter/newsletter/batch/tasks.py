@@ -1,6 +1,5 @@
 """Batch processing Celery tasks for newsletter system."""
 
-import asyncio
 import logging
 import time
 import uuid
@@ -206,21 +205,19 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
         Dict with batch processing initiation results
     """
 
-    async def _initiate_processing() -> dict[str, Any]:
-        """Internal async function for batch processing initiation."""
+    def _initiate_processing() -> dict[str, Any]:
+        """Internal function for batch processing initiation with sync database operations."""
 
         initiation_start = datetime.utcnow()
         logger.info("Starting batch processing initiation")
 
         try:
-            # Use async database operations for now - will convert later
-            from crypto_newsletter.shared.database.connection import get_db_session
-            async with get_db_session() as db:
+            with get_sync_db_session() as db:
                 identifier = BatchArticleIdentifier()
                 storage = BatchStorageManager()
 
                 # Step 1: Get articles to process
-                article_ids = await identifier.get_analyzable_articles(db)
+                article_ids = identifier.get_analyzable_articles_sync(db)
 
                 if len(article_ids) == 0:
                     return {
@@ -230,7 +227,7 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                     }
 
                 # Step 2: Validate articles and budget
-                validation = await identifier.validate_articles_for_processing(
+                validation = identifier.validate_articles_for_processing_sync(
                     db, article_ids
                 )
 
@@ -339,8 +336,5 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                 "initiation_timestamp": initiation_start.isoformat(),
             }
 
-    # For now, run async operations in ThreadPoolExecutor until we create sync versions
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(asyncio.run, _initiate_processing())
-        return future.result()
+    # Run the synchronous batch processing initiation
+    return _initiate_processing()
