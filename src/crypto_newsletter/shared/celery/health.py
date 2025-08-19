@@ -134,12 +134,24 @@ class RedisHealthMonitor:
                 conn.ensure_connection(max_retries=3)
                 response_time = (time.time() - start_time) * 1000
                 
+                # Safely get transport name
+                transport_name = "unknown"
+                try:
+                    if hasattr(conn.transport_cls, '__name__'):
+                        transport_name = conn.transport_cls.__name__
+                    elif isinstance(conn.transport_cls, str):
+                        transport_name = conn.transport_cls
+                    else:
+                        transport_name = str(conn.transport_cls)
+                except Exception:
+                    transport_name = "unknown"
+
                 result.update({
                     "status": "healthy",
                     "response_time_ms": round(response_time, 2),
                     "details": {
                         "broker_url": self.celery_app.conf.broker_url,
-                        "transport": conn.transport_cls.__name__,
+                        "transport": transport_name,
                         "connection_established": True,
                     }
                 })
