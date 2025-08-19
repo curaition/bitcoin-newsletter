@@ -152,6 +152,7 @@ def create_celery_app() -> Celery:
         [
             "crypto_newsletter.core.scheduling",
             "crypto_newsletter.analysis",
+            "crypto_newsletter.newsletter.batch",
         ]
     )
 
