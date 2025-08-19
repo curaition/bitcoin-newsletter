@@ -190,7 +190,11 @@ def batch_analyze_articles(
                 "retries_exhausted": True,
             }
 
-    return asyncio.run(_process_batch())
+    # Use ThreadPoolExecutor to avoid event loop conflicts in Celery
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(asyncio.run, _process_batch())
+        return future.result()
 
 
 @celery_app.task(bind=True, queue="batch_processing")
@@ -336,4 +340,8 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                 "initiation_timestamp": initiation_start.isoformat(),
             }
 
-    return asyncio.run(_initiate_processing())
+    # Use ThreadPoolExecutor to avoid event loop conflicts in Celery
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(asyncio.run, _initiate_processing())
+        return future.result()
