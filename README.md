@@ -1,5 +1,7 @@
 # Bitcoin Newsletter
 
+<!-- Phase 1 Preview Environment Test -->
+
 AI-powered cryptocurrency newsletter with signal detection and automated content generation.
 
 ## Overview
