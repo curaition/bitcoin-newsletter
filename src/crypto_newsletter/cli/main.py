@@ -6,12 +6,6 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from loguru import logger
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
-
 from crypto_newsletter.core.ingestion import (
     pipeline_health_check,
     quick_ingestion_test,
@@ -19,6 +13,11 @@ from crypto_newsletter.core.ingestion import (
 )
 from crypto_newsletter.core.storage import get_recent_articles_with_stats
 from crypto_newsletter.shared.config.settings import get_settings
+from loguru import logger
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 # Rich console for enhanced output
 console = Console()
@@ -50,12 +49,12 @@ def health() -> None:
                 table.add_column("Message", style="yellow")
 
                 for check_name, check_result in health_status["checks"].items():
-                    status_text = "✅ Healthy" if check_result["status"] == "healthy" else "❌ Unhealthy"
-                    table.add_row(
-                        check_name,
-                        status_text,
-                        check_result['message']
+                    status_text = (
+                        "✅ Healthy"
+                        if check_result["status"] == "healthy"
+                        else "❌ Unhealthy"
                     )
+                    table.add_row(check_name, status_text, check_result["message"])
 
                 console.print(table)
             else:
@@ -68,12 +67,12 @@ def health() -> None:
                 table.add_column("Message", style="yellow")
 
                 for check_name, check_result in health_status["checks"].items():
-                    status_text = "✅ Healthy" if check_result["status"] == "healthy" else "❌ Unhealthy"
-                    table.add_row(
-                        check_name,
-                        status_text,
-                        check_result['message']
+                    status_text = (
+                        "✅ Healthy"
+                        if check_result["status"] == "healthy"
+                        else "❌ Unhealthy"
                     )
+                    table.add_row(check_name, status_text, check_result["message"])
 
                 console.print(table)
 
@@ -88,7 +87,7 @@ def health() -> None:
 def test() -> None:
     """Run a quick pipeline test with minimal data."""
     typer.echo("🧪 Running pipeline test...")
-    
+
     async def _test():
         try:
             success = await quick_ingestion_test()
@@ -100,29 +99,35 @@ def test() -> None:
         except Exception as e:
             typer.echo(f"❌ Pipeline test error: {e}")
             raise typer.Exit(1)
-    
+
     asyncio.run(_test())
 
 
 @app.command()
 def ingest(
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum articles to fetch"),
-    hours: int = typer.Option(24, "--hours", "-h", help="Hours back to filter articles"),
-    categories: Optional[str] = typer.Option(None, "--categories", "-c", help="Comma-separated categories"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output"),
+    hours: int = typer.Option(
+        24, "--hours", "-h", help="Hours back to filter articles"
+    ),
+    categories: Optional[str] = typer.Option(
+        None, "--categories", "-c", help="Comma-separated categories"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose output"
+    ),
 ) -> None:
     """Run article ingestion from CoinDesk API."""
     if verbose:
         logger.remove()
         logger.add(lambda msg: typer.echo(msg, err=True), level="DEBUG")
-    
+
     category_list = categories.split(",") if categories else None
-    
-    typer.echo(f"📰 Starting article ingestion...")
+
+    typer.echo("📰 Starting article ingestion...")
     typer.echo(f"   Limit: {limit} articles")
     typer.echo(f"   Time window: {hours} hours")
     typer.echo(f"   Categories: {category_list or ['BTC']}")
-    
+
     async def _ingest():
         try:
             results = await run_article_ingestion(
@@ -130,23 +135,25 @@ def ingest(
                 hours_back=hours,
                 categories=category_list,
             )
-            
+
             # Display results
             summary = results["summary"]
-            typer.echo(f"\n✅ Ingestion completed!")
+            typer.echo("\n✅ Ingestion completed!")
             typer.echo(f"   📊 Articles fetched: {summary['articles_fetched']}")
             typer.echo(f"   💾 Articles processed: {summary['articles_processed']}")
             typer.echo(f"   🔄 Duplicates skipped: {summary['duplicates_skipped']}")
             typer.echo(f"   ⚡ Success rate: {summary['success_rate']:.1%}")
-            typer.echo(f"   ⏱️  Processing time: {results['processing_time_seconds']:.2f}s")
-            
-            if summary['errors'] > 0:
+            typer.echo(
+                f"   ⏱️  Processing time: {results['processing_time_seconds']:.2f}s"
+            )
+
+            if summary["errors"] > 0:
                 typer.echo(f"   ⚠️  Errors: {summary['errors']}")
-                
+
         except Exception as e:
             typer.echo(f"❌ Ingestion failed: {e}")
             raise typer.Exit(1)
-    
+
     asyncio.run(_ingest())
 
 
@@ -154,40 +161,44 @@ def ingest(
 def stats() -> None:
     """Show article statistics and recent data."""
     typer.echo("📊 Fetching article statistics...")
-    
+
     async def _stats():
         try:
             data = await get_recent_articles_with_stats(hours=24)
-            
+
             stats = data["statistics"]
             articles = data["articles"]
-            
-            typer.echo(f"\n📈 Article Statistics:")
+
+            typer.echo("\n📈 Article Statistics:")
             typer.echo(f"   Total articles: {stats['total_articles']}")
             typer.echo(f"   Recent (24h): {stats['recent_articles_24h']}")
             typer.echo(f"   Last updated: {stats['last_updated']}")
-            
+
             if stats["top_publishers"]:
-                typer.echo(f"\n🏢 Top Publishers:")
+                typer.echo("\n🏢 Top Publishers:")
                 for pub in stats["top_publishers"][:5]:
                     typer.echo(f"   • {pub['publisher']}: {pub['count']} articles")
-            
+
             if stats["top_categories"]:
-                typer.echo(f"\n🏷️  Top Categories:")
+                typer.echo("\n🏷️  Top Categories:")
                 for cat in stats["top_categories"][:5]:
                     typer.echo(f"   • {cat['category']}: {cat['count']} articles")
-            
+
             if articles:
                 typer.echo(f"\n📰 Recent Articles ({len(articles)}):")
                 for article in articles[:5]:
-                    title = article["title"][:60] + "..." if len(article["title"]) > 60 else article["title"]
+                    title = (
+                        article["title"][:60] + "..."
+                        if len(article["title"]) > 60
+                        else article["title"]
+                    )
                     publisher_id = article["publisher_id"] or "Unknown"
                     typer.echo(f"   • {title} (Publisher ID: {publisher_id})")
-                    
+
         except Exception as e:
             typer.echo(f"❌ Failed to fetch statistics: {e}")
             raise typer.Exit(1)
-    
+
     asyncio.run(_stats())
 
 
@@ -196,7 +207,9 @@ def serve(
     host: str = typer.Option("0.0.0.0", "--host", help="Host to bind to"),
     port: int = typer.Option(8000, "--port", help="Port to bind to"),
     dev: bool = typer.Option(False, "--dev", help="Enable development mode"),
-    production: bool = typer.Option(False, "--production", help="Enable production mode"),
+    production: bool = typer.Option(
+        False, "--production", help="Enable production mode"
+    ),
     workers: int = typer.Option(1, "--workers", help="Number of worker processes"),
 ) -> None:
     """Start the FastAPI web service."""
@@ -208,10 +221,14 @@ def serve(
         from crypto_newsletter.web.main import start_server
 
         if production:
-            typer.echo(f"🚀 Starting production web service on {host}:{port} with {workers} workers...")
+            typer.echo(
+                f"🚀 Starting production web service on {host}:{port} with {workers} workers..."
+            )
             start_server(host=host, port=port, reload=False, workers=workers)
         elif dev:
-            typer.echo(f"🔧 Starting development web service on {host}:{port} with reload...")
+            typer.echo(
+                f"🔧 Starting development web service on {host}:{port} with reload..."
+            )
             start_server(host=host, port=port, reload=True, workers=1)
         else:
             typer.echo("❌ Must specify either --dev or --production mode")
@@ -236,13 +253,16 @@ def version() -> None:
 def worker(
     loglevel: str = typer.Option("INFO", help="Logging level"),
     concurrency: int = typer.Option(2, help="Number of worker processes"),
-    queues: str = typer.Option("default,ingestion,monitoring,maintenance", help="Queues to consume from"),
+    queues: str = typer.Option(
+        "default,ingestion,monitoring,maintenance", help="Queues to consume from"
+    ),
 ) -> None:
     """Start Celery worker for background task processing."""
     typer.echo("🔄 Starting Celery worker...")
 
     try:
         from crypto_newsletter.shared.celery.worker import start_worker
+
         start_worker(loglevel=loglevel, concurrency=concurrency, queues=queues)
     except ImportError:
         typer.echo("❌ Celery not available. Install with: uv add celery[redis]")
@@ -259,6 +279,7 @@ def beat() -> None:
 
     try:
         from crypto_newsletter.shared.celery.worker import start_beat
+
         start_beat()
     except ImportError:
         typer.echo("❌ Celery not available. Install with: uv add celery[redis]")
@@ -277,6 +298,7 @@ def flower(
 
     try:
         from crypto_newsletter.shared.celery.worker import start_flower
+
         start_flower(port=port)
     except ImportError:
         typer.echo("❌ Flower not available. Install with: uv add flower")
@@ -297,9 +319,9 @@ def task_status(task_id: str) -> None:
         typer.echo(f"📋 Task Status: {task_id}")
         typer.echo(f"   Status: {status['status']}")
         typer.echo(f"   Result: {status['result']}")
-        if status['date_done']:
+        if status["date_done"]:
             typer.echo(f"   Completed: {status['date_done']}")
-        if status['traceback']:
+        if status["traceback"]:
             typer.echo(f"   Error: {status['traceback']}")
 
     except ImportError:
@@ -312,7 +334,9 @@ def task_status(task_id: str) -> None:
 
 @app.command()
 def schedule_ingest(
-    limit: Optional[int] = typer.Option(None, help="Maximum number of articles to fetch"),
+    limit: Optional[int] = typer.Option(
+        None, help="Maximum number of articles to fetch"
+    ),
     hours: int = typer.Option(4, help="Hours back to look for articles"),
 ) -> None:
     """Schedule an immediate article ingestion task."""
@@ -323,7 +347,7 @@ def schedule_ingest(
 
         result = manual_ingest.delay(limit=limit, hours_back=hours)
 
-        typer.echo(f"✅ Task scheduled successfully!")
+        typer.echo("✅ Task scheduled successfully!")
         typer.echo(f"   Task ID: {result.id}")
         typer.echo(f"   Status: {result.status}")
         typer.echo(f"   Use 'task-status {result.id}' to check progress")
@@ -336,6 +360,34 @@ def schedule_ingest(
         raise typer.Exit(1)
 
 
+@app.command()
+def batch_analyze(
+    force: bool = typer.Option(
+        False, help="Force processing even with budget constraints"
+    ),
+) -> None:
+    """Initiate batch processing of unanalyzed articles."""
+    typer.echo("🔬 Initiating batch article analysis...")
+
+    try:
+        from crypto_newsletter.newsletter.batch.tasks import initiate_batch_processing
+
+        result = initiate_batch_processing.delay(force_processing=force)
+
+        typer.echo("✅ Batch processing initiated successfully!")
+        typer.echo(f"   Task ID: {result.id}")
+        typer.echo(f"   Status: {result.status}")
+        typer.echo(f"   Force processing: {force}")
+        typer.echo(f"   Use 'task-status {result.id}' to check progress")
+
+    except ImportError:
+        typer.echo("❌ Celery not available. Install with: uv add celery[redis]")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to initiate batch processing: {e}")
+        raise typer.Exit(1)
+
+
 # Database Management Commands
 @app.command()
 def db_status() -> None:
@@ -344,8 +396,8 @@ def db_status() -> None:
 
     async def _db_status():
         try:
-            from crypto_newsletter.shared.database.connection import get_db_session
             from crypto_newsletter.core.storage.repository import ArticleRepository
+            from crypto_newsletter.shared.database.connection import get_db_session
 
             async with get_db_session() as db:
                 repo = ArticleRepository(db)
@@ -365,9 +417,13 @@ def db_status() -> None:
                 if stats["top_publishers"]:
                     console.print("\n🏢 [bold]Top Publishers:[/bold]")
                     for pub in stats["top_publishers"][:3]:
-                        console.print(f"   • {pub['publisher']}: {pub['count']} articles")
+                        console.print(
+                            f"   • {pub['publisher']}: {pub['count']} articles"
+                        )
 
-                console.print("\n✅ [bold green]Database connection successful![/bold green]")
+                console.print(
+                    "\n✅ [bold green]Database connection successful![/bold green]"
+                )
 
         except Exception as e:
             console.print(f"❌ [bold red]Database connection failed:[/bold red] {e}")
@@ -379,13 +435,19 @@ def db_status() -> None:
 @app.command()
 def db_cleanup(
     days: int = typer.Option(30, help="Delete articles older than N days"),
-    dry_run: bool = typer.Option(True, help="Show what would be deleted without actually deleting"),
+    dry_run: bool = typer.Option(
+        True, help="Show what would be deleted without actually deleting"
+    ),
 ) -> None:
     """Clean up old articles from the database."""
     if dry_run:
-        console.print(f"🧹 [bold yellow]DRY RUN:[/bold yellow] Checking articles older than {days} days...")
+        console.print(
+            f"🧹 [bold yellow]DRY RUN:[/bold yellow] Checking articles older than {days} days..."
+        )
     else:
-        console.print(f"🧹 [bold red]DELETING[/bold red] articles older than {days} days...")
+        console.print(
+            f"🧹 [bold red]DELETING[/bold red] articles older than {days} days..."
+        )
 
     async def _cleanup():
         try:
@@ -397,7 +459,9 @@ def db_cleanup(
             ).get()
 
             if dry_run:
-                console.print(f"📊 Would delete {result.get('articles_to_delete', 0)} articles")
+                console.print(
+                    f"📊 Would delete {result.get('articles_to_delete', 0)} articles"
+                )
             else:
                 console.print(f"✅ Deleted {result.get('articles_deleted', 0)} articles")
 
@@ -431,11 +495,7 @@ def tasks_active() -> None:
 
         for worker, worker_tasks in tasks.get("active", {}).items():
             for task in worker_tasks:
-                table.add_row(
-                    worker,
-                    task.get("name", "Unknown"),
-                    "Running"
-                )
+                table.add_row(worker, task.get("name", "Unknown"), "Running")
 
         console.print(table)
 
@@ -487,7 +547,9 @@ def config_show() -> None:
         table.add_column("Source", style="yellow")
 
         # Environment settings
-        table.add_row("Environment", settings.railway_environment, "RAILWAY_ENVIRONMENT")
+        table.add_row(
+            "Environment", settings.railway_environment, "RAILWAY_ENVIRONMENT"
+        )
         table.add_row("Service Type", settings.service_type, "SERVICE_TYPE")
         table.add_row("Debug Mode", str(settings.debug), "DEBUG")
 
@@ -504,8 +566,14 @@ def config_show() -> None:
         table.add_row("Redis URL", redis_url, "REDIS_URL")
 
         # API
-        table.add_row("CoinDesk Base URL", settings.coindesk_base_url, "COINDESK_BASE_URL")
-        api_key = "***" + settings.coindesk_api_key[-4:] if settings.coindesk_api_key else "Not set"
+        table.add_row(
+            "CoinDesk Base URL", settings.coindesk_base_url, "COINDESK_BASE_URL"
+        )
+        api_key = (
+            "***" + settings.coindesk_api_key[-4:]
+            if settings.coindesk_api_key
+            else "Not set"
+        )
         table.add_row("CoinDesk API Key", api_key, "COINDESK_API_KEY")
 
         # Celery
@@ -531,21 +599,24 @@ def config_test() -> None:
             TextColumn("[progress.description]{task.description}"),
             console=console,
         ) as progress:
-
             # Test database connection
             task1 = progress.add_task("Testing database connection...", total=None)
             try:
                 from crypto_newsletter.shared.database.connection import get_db_session
+
                 async with get_db_session() as db:
                     await db.execute("SELECT 1")
                 progress.update(task1, description="✅ Database connection: OK")
             except Exception as e:
-                progress.update(task1, description=f"❌ Database connection: FAILED - {e}")
+                progress.update(
+                    task1, description=f"❌ Database connection: FAILED - {e}"
+                )
 
             # Test Redis connection
             task2 = progress.add_task("Testing Redis connection...", total=None)
             try:
                 import redis
+
                 r = redis.from_url(settings.redis_url)
                 r.ping()
                 progress.update(task2, description="✅ Redis connection: OK")
@@ -555,7 +626,10 @@ def config_test() -> None:
             # Test CoinDesk API
             task3 = progress.add_task("Testing CoinDesk API...", total=None)
             try:
-                from crypto_newsletter.core.ingestion.coindesk_client import CoinDeskAPIClient
+                from crypto_newsletter.core.ingestion.coindesk_client import (
+                    CoinDeskAPIClient,
+                )
+
                 client = CoinDeskAPIClient()
                 # Test with minimal request
                 await client.fetch_articles(limit=1)
@@ -581,16 +655,24 @@ def dev_setup() -> None:
             missing_files.append(file)
 
     if missing_files:
-        console.print(f"❌ [bold red]Missing required files:[/bold red] {', '.join(missing_files)}")
+        console.print(
+            f"❌ [bold red]Missing required files:[/bold red] {', '.join(missing_files)}"
+        )
         console.print("Please ensure you have the required configuration files.")
         raise typer.Exit(1)
 
     console.print("✅ [bold green]Development environment ready![/bold green]")
     console.print("\n📋 [bold]Next steps:[/bold]")
     console.print("1. Start Redis: [cyan]redis-server[/cyan]")
-    console.print("2. Start worker: [cyan]python -m crypto_newsletter.cli.main worker[/cyan]")
-    console.print("3. Start beat: [cyan]python -m crypto_newsletter.cli.main beat[/cyan]")
-    console.print("4. Start web: [cyan]python -m crypto_newsletter.cli.main serve --dev[/cyan]")
+    console.print(
+        "2. Start worker: [cyan]python -m crypto_newsletter.cli.main worker[/cyan]"
+    )
+    console.print(
+        "3. Start beat: [cyan]python -m crypto_newsletter.cli.main beat[/cyan]"
+    )
+    console.print(
+        "4. Start web: [cyan]python -m crypto_newsletter.cli.main serve --dev[/cyan]"
+    )
 
 
 @app.command()
@@ -602,6 +684,7 @@ def dev_reset() -> None:
         # Clear Redis cache
         settings = get_settings()
         import redis
+
         r = redis.from_url(settings.redis_url)
         r.flushdb()
         console.print("✅ Cleared Redis cache")
@@ -613,7 +696,9 @@ def dev_reset() -> None:
                 Path(file).unlink()
                 console.print(f"✅ Removed {file}")
 
-        console.print("✅ [bold green]Development environment reset complete![/bold green]")
+        console.print(
+            "✅ [bold green]Development environment reset complete![/bold green]"
+        )
 
     except Exception as e:
         console.print(f"❌ [bold red]Reset failed:[/bold red] {e}")
@@ -633,37 +718,51 @@ def monitor() -> None:
                 console.clear()
 
                 # Header
-                console.print(Panel.fit(
-                    "[bold blue]Crypto Newsletter - Live Monitor[/bold blue]",
-                    border_style="blue"
-                ))
+                console.print(
+                    Panel.fit(
+                        "[bold blue]Crypto Newsletter - Live Monitor[/bold blue]",
+                        border_style="blue",
+                    )
+                )
 
                 # System status
                 console.print("\n🔍 [bold]System Status:[/bold]")
 
                 # Database stats
                 try:
-                    from crypto_newsletter.shared.database.connection import get_db_session
-                    from crypto_newsletter.core.storage.repository import ArticleRepository
+                    from crypto_newsletter.core.storage.repository import (
+                        ArticleRepository,
+                    )
+                    from crypto_newsletter.shared.database.connection import (
+                        get_db_session,
+                    )
 
                     async with get_db_session() as db:
                         repo = ArticleRepository(db)
                         stats = await repo.get_article_statistics()
 
-                        console.print(f"📊 Articles: {stats['total_articles']} total, {stats['recent_articles_24h']} recent")
+                        console.print(
+                            f"📊 Articles: {stats['total_articles']} total, {stats['recent_articles_24h']} recent"
+                        )
                 except Exception as e:
                     console.print(f"❌ Database: {e}")
 
                 # Task status
                 try:
                     from crypto_newsletter.core.scheduling.tasks import get_active_tasks
+
                     tasks = get_active_tasks()
-                    active_count = sum(len(worker_tasks) for worker_tasks in tasks.get("active", {}).values())
+                    active_count = sum(
+                        len(worker_tasks)
+                        for worker_tasks in tasks.get("active", {}).values()
+                    )
                     console.print(f"⚙️  Active Tasks: {active_count}")
                 except Exception as e:
                     console.print(f"❌ Tasks: {e}")
 
-                console.print(f"\n⏰ Last updated: {datetime.now().strftime('%H:%M:%S')}")
+                console.print(
+                    f"\n⏰ Last updated: {datetime.now().strftime('%H:%M:%S')}"
+                )
                 console.print("Press Ctrl+C to exit")
 
                 # Wait 5 seconds
@@ -677,7 +776,9 @@ def monitor() -> None:
 
 @app.command()
 def logs(
-    service: str = typer.Option("all", help="Service to show logs for (web/worker/beat/all)"),
+    service: str = typer.Option(
+        "all", help="Service to show logs for (web/worker/beat/all)"
+    ),
     lines: int = typer.Option(50, help="Number of lines to show"),
     follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output"),
 ) -> None:
@@ -712,8 +813,8 @@ def shell() -> None:
 
         # Set up shell context
         context = {
-            'settings': get_settings(),
-            'get_db_session': get_db_session,
+            "settings": get_settings(),
+            "get_db_session": get_db_session,
         }
 
         console.print("Available objects: settings, get_db_session")
@@ -731,14 +832,17 @@ def export_data(
     days: int = typer.Option(7, help="Days of data to export"),
 ) -> None:
     """Export article data to file."""
-    console.print(f"📤 [bold blue]Exporting {days} days of data to {output}...[/bold blue]")
+    console.print(
+        f"📤 [bold blue]Exporting {days} days of data to {output}...[/bold blue]"
+    )
 
     async def _export():
         try:
-            from crypto_newsletter.shared.database.connection import get_db_session
-            from crypto_newsletter.core.storage.repository import ArticleRepository
-            import json
             import csv
+            import json
+
+            from crypto_newsletter.core.storage.repository import ArticleRepository
+            from crypto_newsletter.shared.database.connection import get_db_session
 
             async with get_db_session() as db:
                 repo = ArticleRepository(db)
@@ -747,26 +851,32 @@ def export_data(
                 # Convert to dict format
                 data = []
                 for article in articles:
-                    data.append({
-                        'id': article.id,
-                        'title': article.title,
-                        'url': article.url,
-                        'published_on': article.published_on.isoformat() if article.published_on else None,
-                        'publisher_id': article.publisher_id,
-                    })
+                    data.append(
+                        {
+                            "id": article.id,
+                            "title": article.title,
+                            "url": article.url,
+                            "published_on": article.published_on.isoformat()
+                            if article.published_on
+                            else None,
+                            "publisher_id": article.publisher_id,
+                        }
+                    )
 
                 # Export based on format
-                if format.lower() == 'json':
-                    with open(output, 'w') as f:
+                if format.lower() == "json":
+                    with open(output, "w") as f:
                         json.dump(data, f, indent=2)
-                elif format.lower() == 'csv':
-                    with open(output, 'w', newline='') as f:
+                elif format.lower() == "csv":
+                    with open(output, "w", newline="") as f:
                         if data:
                             writer = csv.DictWriter(f, fieldnames=data[0].keys())
                             writer.writeheader()
                             writer.writerows(data)
 
-                console.print(f"✅ [bold green]Exported {len(data)} articles to {output}[/bold green]")
+                console.print(
+                    f"✅ [bold green]Exported {len(data)} articles to {output}[/bold green]"
+                )
 
         except Exception as e:
             console.print(f"❌ [bold red]Export failed:[/bold red] {e}")
@@ -827,8 +937,12 @@ def commands() -> None:
         for cmd, desc in commands:
             console.print(f"  [cyan]{cmd:<20}[/cyan] {desc}")
 
-    console.print(f"\n💡 [bold]Usage:[/bold] python -m crypto_newsletter.cli.main [cyan]<command>[/cyan] [yellow]--help[/yellow]")
-    console.print(f"📖 [bold]Example:[/bold] python -m crypto_newsletter.cli.main [cyan]health[/cyan]")
+    console.print(
+        "\n💡 [bold]Usage:[/bold] python -m crypto_newsletter.cli.main [cyan]<command>[/cyan] [yellow]--help[/yellow]"
+    )
+    console.print(
+        "📖 [bold]Example:[/bold] python -m crypto_newsletter.cli.main [cyan]health[/cyan]"
+    )
 
 
 def main() -> None:
