@@ -168,9 +168,8 @@ def _store_analysis_results_sync(
         if signal_validation
         else [],
         validation_status="COMPLETED" if signal_validation else "PENDING",
-        # research_cost field not in ArticleAnalysis model - cost tracked in processing_metadata
-        # total_cost field not in ArticleAnalysis model - cost tracked in processing_metadata
-        processing_metadata=result["processing_metadata"],
+        # research_cost, total_cost, processing_metadata fields not in ArticleAnalysis model
+        # Cost and metadata information is available in the result dict for logging
         analyzed_at=datetime.utcnow(),
         requires_manual_review=result.get("requires_manual_review", False),
     )
