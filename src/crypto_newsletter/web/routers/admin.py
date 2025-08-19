@@ -333,3 +333,90 @@ async def get_system_stats() -> dict[str, Any]:
         raise HTTPException(
             status_code=500, detail=f"Failed to get system statistics: {e}"
         )
+
+
+@router.post("/newsletter/generate")
+async def generate_newsletter(
+    force_generation: bool = False
+) -> dict[str, Any]:
+    """
+    Generate a newsletter from analyzed articles.
+
+    Args:
+        force_generation: Generate even if insufficient analyzed articles
+
+    Returns:
+        Newsletter generation result
+    """
+    try:
+        from crypto_newsletter.newsletter.agents.orchestrator import newsletter_orchestrator
+        from crypto_newsletter.shared.database.connection import get_db_session
+        from sqlalchemy import text
+
+        # Get analyzed articles from the last 24 hours
+        async with get_db_session() as db:
+            query = text("""
+                SELECT
+                    a.id,
+                    a.title,
+                    p.name as publisher,
+                    a.published_on,
+                    a.body,
+                    aa.signal_strength,
+                    aa.uniqueness_score,
+                    aa.analysis_confidence,
+                    aa.weak_signals,
+                    aa.pattern_anomalies,
+                    aa.adjacent_connections
+                FROM articles a
+                JOIN publishers p ON a.publisher_id = p.id
+                JOIN article_analyses aa ON a.id = aa.article_id
+                WHERE aa.created_at >= NOW() - INTERVAL '24 hours'
+                  AND LENGTH(a.body) > 2000
+                  AND aa.signal_strength > 0.6
+                ORDER BY aa.signal_strength DESC
+                LIMIT 10
+            """)
+
+            result = await db.execute(query)
+            articles = []
+
+            for row in result.fetchall():
+                articles.append({
+                    "id": row[0],
+                    "title": row[1],
+                    "publisher": row[2],
+                    "published_on": row[3].isoformat() if row[3] else None,
+                    "body": row[4],
+                    "signal_strength": float(row[5]) if row[5] else 0.0,
+                    "uniqueness_score": float(row[6]) if row[6] else 0.0,
+                    "analysis_confidence": float(row[7]) if row[7] else 0.0,
+                    "weak_signals": row[8] if row[8] else [],
+                    "pattern_anomalies": row[9] if row[9] else [],
+                    "adjacent_connections": row[10] if row[10] else [],
+                })
+
+        if len(articles) < 3 and not force_generation:
+            return {
+                "success": False,
+                "error": "Insufficient analyzed articles for newsletter generation",
+                "articles_found": len(articles),
+                "minimum_required": 3,
+                "suggestion": "Use force_generation=true to proceed anyway"
+            }
+
+        # Generate newsletter using orchestrator
+        newsletter_result = await newsletter_orchestrator.generate_daily_newsletter(articles)
+
+        return {
+            "success": True,
+            "newsletter_result": newsletter_result,
+            "articles_processed": len(articles),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate newsletter: {e}"
+        )
