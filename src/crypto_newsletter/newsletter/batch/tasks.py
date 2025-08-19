@@ -12,7 +12,7 @@ from crypto_newsletter.newsletter.batch.config import BatchProcessingConfig
 from crypto_newsletter.newsletter.batch.identifier import BatchArticleIdentifier
 from crypto_newsletter.newsletter.batch.storage import BatchStorageManager
 from crypto_newsletter.shared.celery.app import celery_app
-from crypto_newsletter.shared.database.connection import get_db_session
+from crypto_newsletter.shared.database.connection import get_sync_db_session
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,8 @@ def batch_analyze_articles(
         Dict with batch processing results
     """
 
-    async def _process_batch() -> dict[str, Any]:
-        """Internal async function for batch processing."""
+    def _process_batch() -> dict[str, Any]:
+        """Internal function for batch processing with sync database operations."""
 
         batch_start = datetime.utcnow()
         logger.info(
@@ -54,11 +54,11 @@ def batch_analyze_articles(
         )
 
         try:
-            async with get_db_session() as db:
+            with get_sync_db_session() as db:
                 storage = BatchStorageManager()
 
                 # Update batch record status to PROCESSING
-                await storage.update_batch_record_status(
+                storage.update_batch_record_status_sync(
                     db, session_id, batch_number, "PROCESSING", batch_start
                 )
 
@@ -132,7 +132,7 @@ def batch_analyze_articles(
 
                 # Update batch record with results
                 batch_completed = datetime.utcnow()
-                await storage.update_batch_record_completion(
+                storage.update_batch_record_completion_sync(
                     db,
                     session_id,
                     batch_number,
@@ -143,7 +143,7 @@ def batch_analyze_articles(
                 )
 
                 # Update session actual cost
-                await storage.update_session_actual_cost(db, session_id, batch_cost)
+                storage.update_session_actual_cost_sync(db, session_id, batch_cost)
 
                 processing_time = (batch_completed - batch_start).total_seconds()
 
@@ -168,9 +168,9 @@ def batch_analyze_articles(
             logger.error(f"Batch {batch_number} failed: {exc}")
 
             # Update batch record with failure
-            async with get_db_session() as db:
+            with get_sync_db_session() as db:
                 storage = BatchStorageManager()
-                await storage.update_batch_record_status(
+                storage.update_batch_record_status_sync(
                     db, session_id, batch_number, "FAILED", error_message=str(exc)
                 )
 
@@ -190,11 +190,8 @@ def batch_analyze_articles(
                 "retries_exhausted": True,
             }
 
-    # Use ThreadPoolExecutor to avoid event loop conflicts in Celery
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(asyncio.run, _process_batch())
-        return future.result()
+    # Run the synchronous batch processing
+    return _process_batch()
 
 
 @celery_app.task(bind=True, queue="batch_processing")
@@ -216,6 +213,8 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
         logger.info("Starting batch processing initiation")
 
         try:
+            # Use async database operations for now - will convert later
+            from crypto_newsletter.shared.database.connection import get_db_session
             async with get_db_session() as db:
                 identifier = BatchArticleIdentifier()
                 storage = BatchStorageManager()
@@ -340,7 +339,7 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                 "initiation_timestamp": initiation_start.isoformat(),
             }
 
-    # Use ThreadPoolExecutor to avoid event loop conflicts in Celery
+    # For now, run async operations in ThreadPoolExecutor until we create sync versions
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future = executor.submit(asyncio.run, _initiate_processing())

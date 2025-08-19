@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Any
 
 from crypto_newsletter.shared.celery.app import celery_app
-from crypto_newsletter.shared.database.connection import get_db_session
+from crypto_newsletter.shared.database.connection import get_sync_db_session
 from crypto_newsletter.shared.models import Article, ArticleAnalysis
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from .agents.orchestrator import orchestrator
 from .agents.settings import analysis_settings
@@ -38,13 +38,13 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
         Dict with analysis results and metadata
     """
 
-    async def _run_analysis() -> dict[str, Any]:
-        """Internal async function to run the analysis."""
+    def _run_analysis() -> dict[str, Any]:
+        """Internal function to run the analysis with sync database operations."""
 
-        async with get_db_session() as db:
+        with get_sync_db_session() as db:
             try:
                 # Get article from database
-                article = await db.get(Article, article_id)
+                article = db.get(Article, article_id)
                 if not article:
                     raise ValueError(f"Article {article_id} not found")
 
@@ -58,9 +58,9 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                         "requires_manual_review": False,
                     }
 
-                # Set up dependencies
+                # Set up dependencies (note: db_session will be None for sync operations)
                 deps = AnalysisDependencies(
-                    db_session=db,
+                    db_session=None,  # Not used in sync mode
                     cost_tracker=CostTracker(
                         daily_budget=analysis_settings.daily_analysis_budget
                     ),
@@ -82,19 +82,24 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                         "requires_manual_review": False,
                     }
 
-                # Run orchestrated analysis
-                result = await orchestrator.analyze_article(
-                    article_id=article_id,
-                    title=article.title,
-                    body=article.body,
-                    publisher=article.publisher,
-                    deps=deps,
-                )
+                # Run orchestrated analysis in ThreadPoolExecutor to isolate async operations
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        orchestrator.analyze_article(
+                            article_id=article_id,
+                            title=article.title,
+                            body=article.body,
+                            publisher=article.publisher,
+                            deps=deps,
+                        )
+                    )
+                    result = future.result()
 
                 # Store results in database if successful
                 if result["success"]:
-                    await _store_analysis_results(db, article_id, result)
-                    await db.commit()
+                    _store_analysis_results_sync(db, article_id, result)
+                    # db.commit() is handled by the context manager
 
                     logger.info(
                         f"Analysis complete for article {article_id}. "
@@ -105,17 +110,13 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                 return result
 
             except Exception as e:
-                await db.rollback()
+                # db.rollback() is handled by the context manager
                 logger.error(f"Analysis failed for article {article_id}: {str(e)}")
                 raise
 
-    # Run the async analysis
+    # Run the synchronous analysis
     try:
-        # Use ThreadPoolExecutor to run async code in Celery workers
-        # This avoids event loop conflicts completely
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, _run_analysis())
-            return future.result()
+        return _run_analysis()
     except Exception as e:
         logger.error(f"Task failed for article {article_id}: {str(e)}")
         # Don't retry on certain errors
@@ -129,10 +130,10 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
         raise
 
 
-async def _store_analysis_results(
-    db: AsyncSession, article_id: int, result: dict[str, Any]
+def _store_analysis_results_sync(
+    db: Session, article_id: int, result: dict[str, Any]
 ) -> None:
-    """Store analysis results in the database."""
+    """Store analysis results in the database using synchronous operations."""
 
     content_analysis = result["content_analysis"]
     signal_validation = result.get("signal_validation")
@@ -171,71 +172,5 @@ async def _store_analysis_results(
     db.add(analysis)
 
 
-@celery_app.task(
-    bind=True,
-    name="crypto_newsletter.analysis.tasks.analyze_recent_articles",
-    max_retries=1,
-)
-def analyze_recent_articles_task(self, limit: int = 10) -> dict[str, Any]:
-    """
-    Analyze recent articles that haven't been analyzed yet.
-
-    Args:
-        limit: Maximum number of articles to analyze
-
-    Returns:
-        Dict with batch analysis results
-    """
-
-    async def _run_batch_analysis() -> dict[str, Any]:
-        """Internal async function for batch analysis."""
-
-        async with get_db_session() as db:
-            # Get unanalyzed articles
-            from sqlalchemy import and_, select
-
-            query = (
-                select(Article)
-                .where(
-                    and_(
-                        Article.id.notin_(select(ArticleAnalysis.article_id)),
-                        Article.body.isnot(None),
-                        Article.body != "",
-                    )
-                )
-                .order_by(Article.published_at.desc())
-                .limit(limit)
-            )
-
-            result = await db.execute(query)
-            articles = result.scalars().all()
-
-            if not articles:
-                return {
-                    "success": True,
-                    "message": "No unanalyzed articles found",
-                    "articles_processed": 0,
-                }
-
-            # Queue individual analysis tasks
-            task_ids = []
-            for article in articles:
-                task = analyze_article_task.delay(article.id)
-                task_ids.append(task.id)
-                logger.info(f"Queued analysis task {task.id} for article {article.id}")
-
-            return {
-                "success": True,
-                "message": f"Queued {len(articles)} articles for analysis",
-                "articles_processed": len(articles),
-                "task_ids": task_ids,
-            }
-
-    # Use ThreadPoolExecutor to run async code in Celery workers
-    try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, _run_batch_analysis())
-            return future.result()
-    except Exception as e:
-        logger.error(f"Batch analysis task failed: {str(e)}")
-        raise
+# Note: analyze_recent_articles_task removed - batch processing is handled
+# by the dedicated batch processing system in crypto_newsletter.newsletter.batch
