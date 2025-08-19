@@ -404,3 +404,66 @@ class BatchStorageManager:
         except Exception as e:
             logger.error(f"Failed to get session actual cost: {e}")
             return 0.0
+
+    def create_batch_session_sync(
+        self,
+        db: Session,
+        session_id: str,
+        total_articles: int,
+        total_batches: int,
+        estimated_cost: float,
+    ) -> BatchProcessingSession:
+        """Create a new batch processing session (synchronous version)."""
+        try:
+            session = BatchProcessingSession(
+                session_id=session_id,
+                total_articles=total_articles,
+                total_batches=total_batches,
+                estimated_cost=estimated_cost,
+                status="INITIATED",
+                started_at=datetime.utcnow(),
+            )
+
+            db.add(session)
+            # db.commit() is handled by the context manager
+            db.flush()  # Ensure the session gets an ID
+            db.refresh(session)
+
+            logger.info(
+                f"Created batch session {session_id} for {total_articles} articles"
+            )
+            return session
+
+        except Exception as e:
+            logger.error(f"Failed to create batch session: {e}")
+            raise
+
+    def create_batch_record_sync(
+        self,
+        db: Session,
+        session_id: str,
+        batch_number: int,
+        article_ids: list[int],
+        estimated_cost: float,
+    ) -> BatchProcessingRecord:
+        """Create a new batch processing record (synchronous version)."""
+        try:
+            record = BatchProcessingRecord(
+                session_id=session_id,
+                batch_number=batch_number,
+                article_ids=article_ids,
+                estimated_cost=estimated_cost,
+                status="PENDING",
+            )
+
+            db.add(record)
+            # db.commit() is handled by the context manager
+            db.flush()  # Ensure the record gets an ID
+            db.refresh(record)
+
+            logger.info(f"Created batch record {batch_number} for session {session_id}")
+            return record
+
+        except Exception as e:
+            logger.error(f"Failed to create batch record: {e}")
+            raise

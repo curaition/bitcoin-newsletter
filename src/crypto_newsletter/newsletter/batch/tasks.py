@@ -268,7 +268,7 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
 
                 # Step 5: Initialize batch processing session
                 session_id = str(uuid.uuid4())
-                session = await storage.create_batch_session(
+                session = storage.create_batch_session_sync(
                     db,
                     session_id,
                     len(valid_article_ids),
@@ -279,7 +279,7 @@ def initiate_batch_processing(self, force_processing: bool = False) -> dict[str,
                 # Step 6: Create batch records
                 batch_records = []
                 for i, chunk in enumerate(article_chunks, 1):
-                    batch_record = await storage.create_batch_record(
+                    batch_record = storage.create_batch_record_sync(
                         db,
                         session_id,
                         i,
