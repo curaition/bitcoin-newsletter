@@ -63,7 +63,7 @@ def batch_analyze_articles(
                 )
 
                 # Check budget constraint before processing
-                current_total_cost = await storage.get_session_actual_cost(
+                current_total_cost = storage.get_session_actual_cost_sync(
                     db, session_id
                 )
                 if current_total_cost > BatchProcessingConfig.MAX_TOTAL_BUDGET:
