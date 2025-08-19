@@ -10,7 +10,7 @@ from crypto_newsletter.shared.models import (
 )
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 logger = logging.getLogger(__name__)
 
@@ -284,3 +284,123 @@ class BatchStorageManager:
             await db.rollback()
             logger.error(f"Failed to finalize batch session: {e}")
             raise
+
+    # Synchronous versions for Celery tasks
+    def update_batch_record_status_sync(
+        self,
+        db: Session,
+        session_id: str,
+        batch_number: int,
+        status: str,
+        started_at: Optional[datetime] = None,
+        error_message: Optional[str] = None,
+    ) -> None:
+        """Update batch record status (synchronous version)."""
+        try:
+            update_data = {"status": status}
+
+            if started_at:
+                update_data["started_at"] = started_at
+
+            if error_message:
+                update_data["error_message"] = error_message
+
+            stmt = (
+                update(BatchProcessingRecord)
+                .where(
+                    BatchProcessingRecord.session_id == session_id,
+                    BatchProcessingRecord.batch_number == batch_number,
+                )
+                .values(**update_data)
+            )
+
+            db.execute(stmt)
+            # db.commit() is handled by the context manager
+
+            logger.info(f"Updated batch {batch_number} status to {status}")
+
+        except Exception as e:
+            logger.error(f"Failed to update batch record status: {e}")
+            raise
+
+    def update_batch_record_completion_sync(
+        self,
+        db: Session,
+        session_id: str,
+        batch_number: int,
+        articles_processed: int,
+        articles_failed: int,
+        actual_cost: float,
+        completed_at: datetime,
+    ) -> None:
+        """Update batch record with completion data (synchronous version)."""
+        try:
+            stmt = (
+                update(BatchProcessingRecord)
+                .where(
+                    BatchProcessingRecord.session_id == session_id,
+                    BatchProcessingRecord.batch_number == batch_number,
+                )
+                .values(
+                    status="COMPLETED",
+                    articles_processed=articles_processed,
+                    articles_failed=articles_failed,
+                    actual_cost=actual_cost,
+                    completed_at=completed_at,
+                )
+            )
+
+            db.execute(stmt)
+            # db.commit() is handled by the context manager
+
+            logger.info(
+                f"Updated batch {batch_number} completion: "
+                f"processed={articles_processed}, failed={articles_failed}, cost=${actual_cost:.4f}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update batch record completion: {e}")
+            raise
+
+    def update_session_actual_cost_sync(
+        self, db: Session, session_id: str, additional_cost: float
+    ) -> None:
+        """Update session actual cost by adding additional cost (synchronous version)."""
+        try:
+            # Get current actual cost
+            stmt = select(BatchProcessingSession.actual_cost).where(
+                BatchProcessingSession.session_id == session_id
+            )
+            result = db.execute(stmt)
+            current_cost = result.scalar() or 0.0
+
+            # Update with new total
+            new_cost = current_cost + additional_cost
+
+            update_stmt = (
+                update(BatchProcessingSession)
+                .where(BatchProcessingSession.session_id == session_id)
+                .values(actual_cost=new_cost)
+            )
+
+            db.execute(update_stmt)
+            # db.commit() is handled by the context manager
+
+            logger.info(f"Updated session {session_id} actual cost to ${new_cost:.4f}")
+
+        except Exception as e:
+            logger.error(f"Failed to update session actual cost: {e}")
+            raise
+
+    def get_session_actual_cost_sync(self, db: Session, session_id: str) -> float:
+        """Get current actual cost for a session (synchronous version)."""
+        try:
+            stmt = select(BatchProcessingSession.actual_cost).where(
+                BatchProcessingSession.session_id == session_id
+            )
+            result = db.execute(stmt)
+            return result.scalar() or 0.0
+
+        except Exception as e:
+            logger.error(f"Failed to get session actual cost: {e}")
+            return 0.0
