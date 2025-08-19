@@ -83,17 +83,25 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                     }
 
                 # Run orchestrated analysis in ThreadPoolExecutor to isolate async operations
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        orchestrator.analyze_article(
-                            article_id=article_id,
-                            title=article.title,
-                            body=article.body,
-                            publisher=article.publisher,
-                            deps=deps,
+                # Create a new event loop for each analysis to avoid "Event loop is closed" errors
+                def run_analysis_with_new_loop():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        return loop.run_until_complete(
+                            orchestrator.analyze_article(
+                                article_id=article_id,
+                                title=article.title,
+                                body=article.body,
+                                publisher=article.publisher,
+                                deps=deps,
+                            )
                         )
-                    )
+                    finally:
+                        loop.close()
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_analysis_with_new_loop)
                     result = future.result()
 
                 # Store results in database if successful

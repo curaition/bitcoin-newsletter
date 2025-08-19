@@ -120,16 +120,20 @@ class AnalysisOrchestrator:
             # Combine results
             total_cost = deps.cost_tracker.total_cost
 
-            # Store results in database
-            analysis_record_id = await self._store_analysis_results(
-                article_id=article_id,
-                content_analysis=content_analysis,
-                validation_result=validation_result,
-                total_cost=total_cost,
-                content_usage=content_usage,
-                validation_usage=validation_usage,
-                deps=deps,
-            )
+            # Store results in database (only if db_session is provided)
+            analysis_record_id = None
+            if deps.db_session is not None:
+                analysis_record_id = await self._store_analysis_results(
+                    article_id=article_id,
+                    content_analysis=content_analysis,
+                    validation_result=validation_result,
+                    total_cost=total_cost,
+                    content_usage=content_usage,
+                    validation_usage=validation_usage,
+                    deps=deps,
+                )
+            else:
+                logger.info("Skipping database storage - will be handled by calling task")
 
             return {
                 "success": True,
