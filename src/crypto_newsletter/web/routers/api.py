@@ -1,10 +1,7 @@
 """Public API endpoints for external integrations."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
-from fastapi import APIRouter, HTTPException, Query, Security
-from fastapi.security.api_key import APIKeyHeader
+from datetime import UTC, datetime
+from typing import Any, Optional
 
 from crypto_newsletter.core.storage.repository import ArticleRepository
 from crypto_newsletter.shared.config.settings import get_settings
@@ -15,6 +12,8 @@ from crypto_newsletter.web.models import (
     StatsResponse,
     TaskScheduleRequest,
 )
+from fastapi import APIRouter, HTTPException, Query, Security
+from fastapi.security.api_key import APIKeyHeader
 
 router = APIRouter()
 
@@ -39,38 +38,42 @@ async def get_api_key(api_key: str = Security(api_key_header)) -> Optional[str]:
         return api_key
 
     # In production, validate API key if provided
-    if api_key and hasattr(settings, 'api_key') and api_key == settings.api_key:
+    if api_key and hasattr(settings, "api_key") and api_key == settings.api_key:
         return api_key
 
     # Public endpoints don't require API key
     return None
 
 
-@router.get("/articles", response_model=List[ArticleResponse])
+@router.get("/articles", response_model=list[ArticleResponse])
 async def get_articles(
     limit: int = Query(10, description="Maximum number of articles to return", le=100),
     offset: int = Query(0, description="Number of articles to skip"),
     publisher_id: Optional[int] = Query(None, description="Filter by publisher ID"),
     publisher: Optional[str] = Query(None, description="Filter by publisher name"),
-    hours_back: Optional[int] = Query(None, description="Filter by hours back from now"),
+    hours_back: Optional[int] = Query(
+        None, description="Filter by hours back from now"
+    ),
     search: Optional[str] = Query(None, description="Search in title and content"),
     status: Optional[str] = Query("ACTIVE", description="Filter by article status"),
-    start_date: Optional[str] = Query(None, description="Filter by start date (ISO 8601)"),
+    start_date: Optional[str] = Query(
+        None, description="Filter by start date (ISO 8601)"
+    ),
     end_date: Optional[str] = Query(None, description="Filter by end date (ISO 8601)"),
     order_by: Optional[str] = Query("published_on", description="Order by field"),
     order: Optional[str] = Query("desc", description="Order direction (asc/desc)"),
     api_key: Optional[str] = Security(get_api_key),
-) -> List[ArticleResponse]:
+) -> list[ArticleResponse]:
     """
     Get list of articles with optional filtering.
-    
+
     Args:
         limit: Maximum number of articles to return
         offset: Number of articles to skip for pagination
         publisher_id: Filter by specific publisher
         hours_back: Filter by articles from last N hours
         api_key: Optional API key for authentication
-        
+
     Returns:
         List of articles matching criteria
     """
@@ -92,7 +95,7 @@ async def get_articles(
                 order_by=order_by,
                 order=order,
             )
-            
+
             # Convert to response models
             return [
                 ArticleResponse(
@@ -108,24 +111,21 @@ async def get_articles(
                 )
                 for article in articles
             ]
-            
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch articles: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch articles: {e}")
 
 
-@router.get("/publishers", response_model=List[PublisherResponse])
+@router.get("/publishers", response_model=list[PublisherResponse])
 async def get_publishers(
     api_key: Optional[str] = Security(get_api_key),
-) -> List[PublisherResponse]:
+) -> list[PublisherResponse]:
     """
     Get list of all publishers.
-    
+
     Args:
         api_key: Optional API key for authentication
-        
+
     Returns:
         List of all publishers
     """
@@ -146,12 +146,9 @@ async def get_publishers(
                 )
                 for pub in publishers
             ]
-            
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch publishers: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch publishers: {e}")
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -160,10 +157,10 @@ async def get_stats(
 ) -> StatsResponse:
     """
     Get system statistics.
-    
+
     Args:
         api_key: Optional API key for authentication
-        
+
     Returns:
         System statistics
     """
@@ -180,11 +177,63 @@ async def get_stats(
                 top_publishers=stats.get("top_publishers", []),
                 top_categories=stats.get("top_categories", []),
             )
-            
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get statistics: {e}")
+
+
+@router.get("/articles/analysis-ready", response_model=list[ArticleResponse])
+async def get_analysis_ready_articles(
+    limit: int = Query(10, description="Maximum number of articles to return", le=100),
+    offset: int = Query(0, description="Number of articles to skip"),
+    publisher_id: Optional[int] = Query(None, description="Filter by publisher ID"),
+    min_length: int = Query(2000, description="Minimum content length for analysis"),
+    api_key: Optional[str] = Security(get_api_key),
+) -> list[ArticleResponse]:
+    """
+    Get articles that are ready for signal analysis (sufficient content length).
+
+    Args:
+        limit: Maximum number of articles to return
+        offset: Number of articles to skip for pagination
+        publisher_id: Filter by specific publisher
+        min_length: Minimum content length required
+        api_key: Optional API key for authentication
+
+    Returns:
+        List of analysis-ready articles
+    """
+    try:
+        async with get_db_session() as db:
+            repo = ArticleRepository(db)
+
+            # Get analysis-ready articles
+            articles = await repo.get_analysis_ready_articles(
+                limit=limit,
+                offset=offset,
+                publisher_id=publisher_id,
+                min_content_length=min_length,
+            )
+
+            # Convert to response models
+            return [
+                ArticleResponse(
+                    id=article["id"],
+                    external_id=article.get("external_id", 0),
+                    title=article["title"],
+                    subtitle=article.get("subtitle"),
+                    url=article["url"],
+                    published_on=article["published_on"],
+                    publisher_id=article.get("publisher_id"),
+                    language=article.get("language"),
+                    status=article.get("status", "ACTIVE"),
+                )
+                for article in articles
+            ]
+
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get statistics: {e}"
+            status_code=500, detail=f"Failed to fetch analysis-ready articles: {e}"
         )
 
 
@@ -192,14 +241,14 @@ async def get_stats(
 async def get_article(
     article_id: int,
     api_key: Optional[str] = Security(get_api_key),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get detailed information about a specific article.
-    
+
     Args:
         article_id: ID of the article to retrieve
         api_key: Optional API key for authentication
-        
+
     Returns:
         Detailed article information
     """
@@ -207,22 +256,18 @@ async def get_article(
         async with get_db_session() as db:
             repo = ArticleRepository(db)
             article = await repo.get_article_by_id(article_id)
-            
+
             if not article:
                 raise HTTPException(
-                    status_code=404,
-                    detail=f"Article with ID {article_id} not found"
+                    status_code=404, detail=f"Article with ID {article_id} not found"
                 )
-            
+
             return article
-            
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch article: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch article: {e}")
 
 
 # Webhook endpoint for external triggers (future use)
@@ -230,65 +275,65 @@ async def get_article(
 async def webhook_trigger_ingest(
     request: TaskScheduleRequest,
     api_key: Optional[str] = Security(get_api_key),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Webhook endpoint to trigger article ingestion.
-    
+
     Args:
         request: Ingestion parameters
         api_key: Optional API key for authentication
-        
+
     Returns:
         Task scheduling result
     """
     settings = get_settings()
-    
+
     if not settings.enable_celery:
         # Run synchronously if Celery is disabled
         try:
-            from crypto_newsletter.core.ingestion.pipeline import ArticleIngestionPipeline
-            
+            from crypto_newsletter.core.ingestion.pipeline import (
+                ArticleIngestionPipeline,
+            )
+
             pipeline = ArticleIngestionPipeline()
             results = await pipeline.run_full_ingestion(
                 limit=request.limit,
                 hours_back=request.hours_back,
                 categories=request.categories,
             )
-            
+
             return {
                 "success": True,
                 "mode": "synchronous",
                 "results": results,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
-            
+
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Synchronous ingestion failed: {e}"
+                status_code=500, detail=f"Synchronous ingestion failed: {e}"
             )
-    
+
     else:
         # Schedule with Celery
         try:
             from crypto_newsletter.core.scheduling.tasks import manual_ingest
-            
+
             result = manual_ingest.delay(
                 limit=request.limit,
                 hours_back=request.hours_back,
                 categories=request.categories,
             )
-            
+
             return {
                 "success": True,
                 "mode": "asynchronous",
                 "task_id": result.id,
                 "status": result.status,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
-            
+
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to schedule webhook ingestion: {e}"
+                status_code=500, detail=f"Failed to schedule webhook ingestion: {e}"
             )

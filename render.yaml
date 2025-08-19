@@ -17,8 +17,7 @@ services:
           type: redis
           name: bitcoin-newsletter-redis
           property: connectionString
-      - key: COINDESK_API_KEY
-        value: "346bed562339e612d8c119b80e25f162386d81bdbe323f381a85eab2f0cb74fb"
+
       - key: ENVIRONMENT
         value: "production"
       - key: SERVICE_TYPE
@@ -31,6 +30,29 @@ services:
         value: "true"
       - key: PYTHONPATH
         value: "/opt/render/project/repo/src"
+      # AI/ML API Keys (sensitive - set via Render dashboard)
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: TAVILY_API_KEY
+        sync: false  # Set manually in Render dashboard
+      # Agent Model Configuration (non-sensitive)
+      - key: CONTENT_ANALYSIS_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: SIGNAL_VALIDATION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: NEWSLETTER_GENERATION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: CROSS_ARTICLE_ANALYSIS_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: TREND_DETECTION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      # Analysis Configuration (non-sensitive)
+      - key: ANALYSIS_DAILY_BUDGET
+        value: "15.00"
+      - key: ANALYSIS_MAX_COST_PER_ARTICLE
+        value: "0.25"
+      - key: ANALYSIS_MIN_CONTENT_LENGTH
+        value: "2000"
     healthCheckPath: "/health"
 
   # Celery Worker Service
@@ -51,8 +73,7 @@ services:
           type: redis
           name: bitcoin-newsletter-redis
           property: connectionString
-      - key: COINDESK_API_KEY
-        value: "346bed562339e612d8c119b80e25f162386d81bdbe323f381a85eab2f0cb74fb"
+
       - key: CELERY_BROKER_URL
         fromService:
           type: redis
@@ -75,6 +96,30 @@ services:
         value: "true"
       - key: PYTHONPATH
         value: "/opt/render/project/repo/src"
+      # Agent Model Configuration (non-sensitive)
+      - key: CONTENT_ANALYSIS_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: SIGNAL_VALIDATION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      # Analysis Configuration (non-sensitive)
+      - key: ANALYSIS_DAILY_BUDGET
+        value: "15.00"
+      - key: ANALYSIS_MAX_COST_PER_ARTICLE
+        value: "0.25"
+      - key: ANALYSIS_MIN_CONTENT_LENGTH
+        value: "2000"
+      # Agent Model Configuration
+      - key: CONTENT_ANALYSIS_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: SIGNAL_VALIDATION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      # Analysis Configuration
+      - key: ANALYSIS_DAILY_BUDGET
+        value: "15.00"
+      - key: ANALYSIS_MAX_COST_PER_ARTICLE
+        value: "0.25"
+      - key: ANALYSIS_MIN_CONTENT_LENGTH
+        value: "2000"
 
   # Celery Beat Scheduler Service
   - type: worker
@@ -94,8 +139,7 @@ services:
           type: redis
           name: bitcoin-newsletter-redis
           property: connectionString
-      - key: COINDESK_API_KEY
-        value: "346bed562339e612d8c119b80e25f162386d81bdbe323f381a85eab2f0cb74fb"
+
       - key: CELERY_BROKER_URL
         fromService:
           type: redis
@@ -118,6 +162,18 @@ services:
         value: "true"
       - key: PYTHONPATH
         value: "/opt/render/project/repo/src"
+      # Agent Model Configuration (non-sensitive)
+      - key: CONTENT_ANALYSIS_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      - key: SIGNAL_VALIDATION_AGENT_MODEL
+        value: "gemini-2.5-flash"
+      # Analysis Configuration (non-sensitive)
+      - key: ANALYSIS_DAILY_BUDGET
+        value: "15.00"
+      - key: ANALYSIS_MAX_COST_PER_ARTICLE
+        value: "0.25"
+      - key: ANALYSIS_MIN_CONTENT_LENGTH
+        value: "2000"
 
   # Redis service for Celery (PostgreSQL hosted externally on Neon)
   - type: redis

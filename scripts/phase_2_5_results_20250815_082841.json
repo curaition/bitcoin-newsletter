@@ -1,0 +1,98 @@
+{
+  "test_metadata": {
+    "start_time": "2025-08-15T08:26:31.354407",
+    "end_time": "2025-08-15T08:28:41.839961",
+    "duration_seconds": 130.485554,
+    "total_articles": 5,
+    "successful_analyses": 0,
+    "total_cost": 0.0,
+    "average_cost_per_article": 0.0
+  },
+  "test_results": [
+    {
+      "success": false,
+      "article_id": 153,
+      "error": "'function' object has no attribute 'total_cost'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Bitcoin Price Slides 4% After Strong Rally \u2013 Correction or Pause?",
+        "publisher": "NewsBTC",
+        "content_length": 2371,
+        "published_on": "2025-08-15T02:20:57+00:00",
+        "url": "https://www.newsbtc.com/analysis/btc/bitcoin-price-slides-120k/"
+      },
+      "processing_time": 19.919517040252686
+    },
+    {
+      "success": false,
+      "article_id": 138,
+      "error": "'function' object has no attribute 'total_cost'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Crypto Slide Spurs $1B Leverage Flush, But It's a Healthy Pullback, Analysts Say",
+        "publisher": "CoinDesk",
+        "content_length": 2465,
+        "published_on": "2025-08-14T16:06:44+00:00",
+        "url": "https://www.coindesk.com/markets/2025/08/14/crypto-slide-spurs-usd1b-leverage-flush-but-it-s-a-healthy-pullback-analysts-say"
+      },
+      "processing_time": 27.934352159500122
+    },
+    {
+      "success": false,
+      "article_id": 152,
+      "error": "'function' object has no attribute 'total_cost'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Ethereum Price Corrects Lower, Could It Trigger Another Buying Spree?",
+        "publisher": "NewsBTC",
+        "content_length": 2504,
+        "published_on": "2025-08-15T03:08:02+00:00",
+        "url": "https://www.newsbtc.com/analysis/eth/ethereum-price-corrects-lower-4780/"
+      },
+      "processing_time": 24.174247980117798
+    },
+    {
+      "success": false,
+      "article_id": 112,
+      "error": "'function' object has no attribute 'total_cost'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Is the Bull Cycle Nearing Its Top? Here\u2019s What Bitcoin NUPL Metric Says",
+        "publisher": "Crypto Potato",
+        "content_length": 2520,
+        "published_on": "2025-08-14T15:26:05+00:00",
+        "url": "https://cryptopotato.com/is-the-bull-cycle-nearing-its-top-heres-what-bitcoin-nupl-metric-says/"
+      },
+      "processing_time": 13.167059898376465
+    },
+    {
+      "success": false,
+      "article_id": 150,
+      "error": "'function' object has no attribute 'total_cost'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Kazakhstan Debuts Central Asia\u2019s First Spot Bitcoin (BTC) ETF",
+        "publisher": "Crypto Potato",
+        "content_length": 2710,
+        "published_on": "2025-08-14T20:06:44+00:00",
+        "url": "https://cryptopotato.com/kazakhstan-debuts-central-asias-first-spot-bitcoin-btc-etf/"
+      },
+      "processing_time": 23.941833972930908
+    }
+  ]
+}

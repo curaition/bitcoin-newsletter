@@ -222,10 +222,10 @@ admin-dashboard/src/
 function ArticleList() {
   // Server state - use TanStack Query
   const { data: articles, isLoading } = useArticles();
-  
+
   // UI state - use Zustand
   const { sidebarOpen, setSidebarOpen } = useUIStore();
-  
+
   // Local component state - use useState
   const [selectedArticles, setSelectedArticles] = useState<number[]>([]);
 }
@@ -248,7 +248,7 @@ class AdminAPIClient {
     const url = buildApiUrl(this.baseUrl, '/api/articles', params);
     const response = await fetch(url, { headers: this.getHeaders() });
     const result = await processApiResponse<Article[]>(response);
-    
+
     if (result.error) throw new Error(result.error.message);
     return result.data;
   }
@@ -261,10 +261,10 @@ class AdminAPIClient {
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoaded, setIsLoaded] = useState(false); // Clerk uses isLoaded
-  
+
   // Clerk-compatible computed properties
   const isSignedIn = !!user;
-  
+
   return { user, isSignedIn, isLoaded, signIn, signOut };
 }
 
@@ -681,7 +681,73 @@ The data discrepancy issue (system shows recent ingestion success but articles a
 
 ---
 
-*Document Version: 4.0*
-*Last Updated: August 14, 2025 - Day 4 Complete, Day 5 Ready*
-*Status: Living Document - Day 4 Complete, Data Investigation Required*
+## 🚨 Day 5 Deployment Issues & Investigation Results
+
+### ✅ **DEPLOYMENT STATUS CONFIRMED**
+
+**All services successfully deployed to Render:**
+- **Frontend**: https://bitcoin-newsletter-admin.onrender.com ✅ (using `serve` package)
+- **API**: https://bitcoin-newsletter-api.onrender.com ✅
+- **Worker**: Background service running ✅
+- **Beat Scheduler**: Background service running ✅
+- **Redis**: Managed service running ✅
+- **Database**: Neon PostgreSQL (109 articles) ✅
+
+### 🔧 **CRITICAL DEPLOYMENT FINDINGS**
+
+#### 1. Frontend Authentication Issue (Production)
+**Problem**: Mock authentication not working in production environment
+- **Root Cause**: Environment detection logic fails in production build
+- **Impact**: Cannot access admin dashboard in production
+- **Status**: ❌ **BLOCKING ISSUE**
+
+**Technical Details**:
+- Local development: `import.meta.env.DEV = true` → Mock auth works
+- Production build: `import.meta.env.DEV = false` → Mock auth disabled
+- Production environment variables not properly configured for mock auth
+
+#### 2. Serve Package vs Vite Preview
+**Confirmed**: Had to use `serve` package instead of `vite preview` for successful Render deployment
+- **Working**: `serve -s dist -l $PORT`
+- **Failed**: `vite preview --host 0.0.0.0 --port $PORT`
+- **Reason**: Vite preview not suitable for production static hosting
+
+#### 3. Article Content Length Disparity Investigation
+**Database Analysis Results**:
+
+| Article ID | Publisher | Word Count | Content Quality |
+|------------|-----------|------------|-----------------|
+| 99 | Bitcoin.com | 55 words | ❌ **Truncated** (should be full article) |
+| 101 | CoinDesk | 2,227 words | ✅ **Complete** (full article content) |
+| 107 | NewsBTC | 659 words | ✅ **Substantial** (good content length) |
+
+**Key Finding**: **Publisher-dependent content quality**
+- **CoinDesk**: Provides full article content via API
+- **NewsBTC**: Provides substantial content (likely full articles)
+- **Bitcoin.com**: Provides only summary/excerpt (352 characters)
+
+#### 4. Language Analysis
+**Result**: ✅ **No Cyrillic or non-English articles found**
+- All 109 articles in database are marked as `language: 'EN'`
+- No language filtering issues detected
+
+### 📋 **OUTSTANDING TASKS FROM DAYS 1-5**
+
+#### Day 5 Status Update (Corrected):
+- [x] **Publisher Resolution**: ✅ **COMPLETE** - Shows actual publisher names (Bitcoin.com, CoinDesk, NewsBTC, etc.)
+- [x] **Article Detail Navigation**: ✅ **COMPLETE** - Previous/next article buttons working and present
+- [ ] **Backend Search Parameters**: ❌ **Outstanding** - Advanced filtering not implemented
+- [ ] **Performance Optimizations**: ❌ **Outstanding** - Caching improvements needed
+
+#### Missing Core Features:
+- [ ] **Search/Filtering**: Backend parameter support incomplete
+- [ ] **Article Content Enhancement**: Need web scraping for truncated publishers
+- [ ] **Real-time Updates**: WebSocket integration deferred
+- [ ] **Error Monitoring**: Production error tracking missing
+
+---
+
+*Document Version: 5.0*
+*Last Updated: August 14, 2025 - Day 5 Investigation Complete*
+*Status: Living Document - Production Issues Identified, Solutions Required*
 *Related PRDs: Back Office Foundation PRD, Simple Admin Dashboard MVP PRD*

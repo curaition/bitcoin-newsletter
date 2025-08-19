@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Articles - Phase 1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+        }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-menu {
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-right: 3px solid #3b82f6;
+        }
+
+        .nav-icon {
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .breadcrumb a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .page-subtitle {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .signal-stats {
+            display: flex;
+            gap: 16px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+        }
+
+        .stat-icon {
+            font-size: 1rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            color: #64748b;
+        }
+
+        .search-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .search-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .search-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background: #f8fafc;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .search-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-left: 12px;
+        }
+
+        .articles-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .articles-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .articles-count {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .refresh-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #64748b;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .articles-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-header {
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table-header th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .article-row {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .article-row:hover {
+            background: #f8fafc;
+        }
+
+        .article-row td {
+            padding: 16px;
+            vertical-align: top;
+        }
+
+        .article-title-cell {
+            max-width: 400px;
+        }
+
+        .article-title {
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .article-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .article-title a:hover {
+            color: #3b82f6;
+        }
+
+        .signal-indicators {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .signal-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            transition: all 0.2s;
+        }
+
+        .signal-dot.analyzed {
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        .signal-dot.high-signal {
+            background: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .signal-dot.medium-signal {
+            background: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+        }
+
+        .signal-dot.processing {
+            background: #8b5cf6;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .signal-strength {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+
+        .publisher-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .publisher-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 600;
+        }
+
+        .published-date {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-analyzed {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-processing {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .status-failed {
+            background: #fecaca;
+            color: #dc2626;
+        }
+
+        .analysis-preview {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .analysis-preview.show {
+            display: block;
+        }
+
+        .preview-text {
+            line-height: 1.4;
+        }
+
+        .cost-info {
+            font-size: 0.75rem;
+            color: #10b981;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .action-btn {
+            background: none;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.75rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-btn:hover {
+            color: #3b82f6;
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            color: white;
+        }
+
+        .quick-preview {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 16px;
+            z-index: 10;
+            display: none;
+        }
+
+        .quick-preview.show {
+            display: block;
+        }
+
+        .preview-header {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+        }
+
+        .preview-content {
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .signal-highlights {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .signal-tag {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .processing-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .processing-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">⚡ Admin</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">📰</span>
+                    Articles
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    System
+                </a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="breadcrumb">
+                <a href="#">📊 Dashboard</a>
+                <span>›</span>
+                <a href="#">📰 Articles</a>
+                <span>›</span>
+                <span>Browse articles</span>
+            </div>
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Articles</h1>
+                    <p class="page-subtitle">Browse and manage ingested articles with AI signal analysis</p>
+                </div>
+                <div class="header-actions">
+                    <button class="refresh-btn">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <!-- Signal Intelligence Stats -->
+            <div class="signal-stats">
+                <div class="stat-item">
+                    <span class="stat-icon">🎯</span>
+                    <span class="stat-value">127</span>
+                    <span class="stat-label">Signals Detected</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">🔍</span>
+                    <span class="stat-value">49/76</span>
+                    <span class="stat-label">Articles Analyzed (24h)</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">⚡</span>
+                    <span class="stat-value">78%</span>
+                    <span class="stat-label">Avg Signal Strength</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">💰</span>
+                    <span class="stat-value">$47.23</span>
+                    <span class="stat-label">Analysis Costs (7d)</span>
+                </div>
+            </div>
+
+            <div class="search-section">
+                <div class="search-header">
+                    <h2 class="search-title">Search Articles</h2>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <input type="text" class="search-input" placeholder="Find articles by title, publisher, content, or detected signals...">
+                    <button class="search-btn">🔍 Search</button>
+                </div>
+            </div>
+
+            <div class="articles-section">
+                <div class="articles-header">
+                    <div>
+                        <h2 style="font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Articles</h2>
+                        <div class="articles-count">20 articles found • 18 with AI analysis</div>
+                    </div>
+                    <button class="refresh-btn">🔄 Refresh</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="articles-table">
+                        <thead class="table-header">
+                            <tr>
+                                <th>Title & Signal Intelligence</th>
+                                <th>Publisher</th>
+                                <th>Published</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- High Signal Article -->
+                            <tr class="article-row" onmouseenter="showPreview(this)" onmouseleave="hidePreview(this)">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">Will Trump and Putin Mention Bitcoin (BTC) During Their Meeting? Here's What We Know</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot analyzed high-signal" title="High signal strength - Cross-domain geopolitical analysis"></div>
+                                        <div class="signal-dot analyzed" title="Adjacent connections detected"></div>
+                                        <div class="signal-dot analyzed" title="Pattern anomalies identified"></div>
+                                        <span class="signal-strength">🎯 87% Signal</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat">
+                                            <span>⚡</span>
+                                            <span>5.2s</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>💰</span>
+                                            <span>$0.34</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>🎯</span>
+                                            <span>4 signals</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-preview">
+                                        <div class="preview-header">🎯 Signal Intelligence Preview</div>
+                                        <div class="preview-content">
+                                            <strong>Cross-Domain Pattern:</strong> Geopolitical meetings intersecting with crypto adoption signals. Potential policy discussions around digital currency frameworks.
+                                            <div class="signal-highlights">
+                                                <span class="signal-tag">Geopolitical</span>
+                                                <span class="signal-tag">Policy Signal</span>
+                                                <span class="signal-tag">Adjacent Possibility</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">CP</div>
+                                        <span>Crypto Potato</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 3 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-analyzed">
+                                        ✅ Analyzed
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <a href="#" class="action-btn btn-primary">
+                                        🔍 Signals
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- Medium Signal Article -->
+                            <tr class="article-row" onmouseenter="showPreview(this)" onmouseleave="hidePreview(this)">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">$9,600 Ethereum? This Is the Target for ETH to Match the Historical Ratio</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot analyzed medium-signal" title="Medium signal strength - Technical analysis patterns"></div>
+                                        <div class="signal-dot analyzed" title="Narrative gaps detected"></div>
+                                        <span class="signal-strength">📊 64% Signal</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat">
+                                            <span>⚡</span>
+                                            <span>4.1s</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>💰</span>
+                                            <span>$0.28</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>🎯</span>
+                                            <span>2 signals</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-preview">
+                                        <div class="preview-header">📊 Signal Analysis Preview</div>
+                                        <div class="preview-content">
+                                            <strong>Technical Pattern:</strong> Historical ratio analysis with missing fundamental context. Narrative gaps around DeFi ecosystem impact on ETH valuation.
+                                            <div class="signal-highlights">
+                                                <span class="signal-tag">Technical Analysis</span>
+                                                <span class="signal-tag">Narrative Gap</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">CP</div>
+                                        <span>Crypto Potato</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 3 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-analyzed">
+                                        ✅ Analyzed
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <a href="#" class="action-btn btn-primary">
+                                        🔍 Signals
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- Processing Article -->
+                            <tr class="article-row">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">CRYPTO DROPS AFTER PPI, HUGE LIQUIDATIONS, TRUMP-PUTIN TO MEET</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot processing" title="AI analysis in progress"></div>
+                                        <div class="signal-dot processing" title="Signal detection ongoing"></div>
+                                        <span class="signal-strength">⏳ Analyzing...</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat">
+                                            <span>⏳</span>
+                                            <span>ETA 2m</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>📍</span>
+                                            <span>Queue #3</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">DC</div>
+                                        <span>Decrypt</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 4 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-processing">
+                                        ⏳ Processing
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="action-btn">
+                                        ⚡ Priority
+                                    </button>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- Low Quality Content -->
+                            <tr class="article-row">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">Cardano Defies Market Pullback: Could On-Chain Momentum Signal a 70% Run Ahead?</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot" title="Content too short for analysis" style="background: #f59e0b;"></div>
+                                        <span class="signal-strength" style="color: #f59e0b;">⚠️ Content Limited</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat">
+                                            <span>📏</span>
+                                            <span>156 chars</span>
+                                        </div>
+                                        <div class="processing-stat" style="color: #f59e0b;">
+                                            <span>⚠️</span>
+                                            <span>Below threshold</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">NB</div>
+                                        <span>NewsBTC</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 4 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-active">
+                                        📏 Excerpt Only
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="action-btn">
+                                        🔄 Fetch Full
+                                    </button>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- High Quality Analysis -->
+                            <tr class="article-row" onmouseenter="showPreview(this)" onmouseleave="hidePreview(this)">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">$640 Million Flows Into Ether ETFs as Bitcoin ETFs Notch 7th Day of Gains</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot analyzed high-signal" title="High signal strength - Institutional flow patterns"></div>
+                                        <div class="signal-dot analyzed" title="Cross-domain analysis completed"></div>
+                                        <span class="signal-strength">🎯 91% Signal</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat">
+                                            <span>⚡</span>
+                                            <span>6.8s</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>💰</span>
+                                            <span>$0.42</span>
+                                        </div>
+                                        <div class="processing-stat">
+                                            <span>🎯</span>
+                                            <span>5 signals</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-preview">
+                                        <div class="preview-header">🎯 High-Value Signal Analysis</div>
+                                        <div class="preview-content">
+                                            <strong>Institutional Flow Pattern:</strong> Divergent ETF flows indicating sophisticated allocation strategies. Adjacent connections to traditional finance risk management detected.
+                                            <div class="signal-highlights">
+                                                <span class="signal-tag">Institutional</span>
+                                                <span class="signal-tag">Flow Analysis</span>
+                                                <span class="signal-tag">TradFi Connection</span>
+                                                <span class="signal-tag">Weak Signal</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">BC</div>
+                                        <span>Bitcoin.com</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 5 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-analyzed">
+                                        ✅ Analyzed
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <a href="#" class="action-btn btn-primary">
+                                        🔍 Signals
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- Failed Analysis -->
+                            <tr class="article-row">
+                                <td class="article-title-cell">
+                                    <div class="article-title">
+                                        <a href="#">Taiwan's first Bitcoin treasury Top Win raises $10M for BTC purchases</a>
+                                    </div>
+                                    <div class="signal-indicators">
+                                        <div class="signal-dot" title="Analysis failed" style="background: #ef4444;"></div>
+                                        <span class="signal-strength" style="color: #ef4444;">❌ Analysis Failed</span>
+                                    </div>
+                                    <div class="processing-info">
+                                        <div class="processing-stat" style="color: #ef4444;">
+                                            <span>❌</span>
+                                            <span>Content parsing error</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="publisher-cell">
+                                        <div class="publisher-icon">CT</div>
+                                        <span>CoinTelegraph</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="published-date">about 5 hours ago</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-failed">
+                                        ❌ Failed
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="action-btn">
+                                        🔄 Retry
+                                    </button>
+                                    <a href="#" class="action-btn">
+                                        👁️ View
+                                    </a>
+                                    <a href="#" class="action-btn">
+                                        🔗 Original
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showPreview(row) {
+            const preview = row.querySelector('.quick-preview');
+            if (preview) {
+                preview.classList.add('show');
+            }
+        }
+
+        function hidePreview(row) {
+            const preview = row.querySelector('.quick-preview');
+            if (preview) {
+                preview.classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>

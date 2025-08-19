@@ -1,7 +1,15 @@
 """Database models for the crypto newsletter system."""
 
 from .base import Base, TimestampMixin
-from .models import Article, ArticleCategory, Category, Publisher
+from .models import (
+    Article,
+    ArticleAnalysis,
+    ArticleCategory,
+    BatchProcessingRecord,
+    BatchProcessingSession,
+    Category,
+    Publisher,
+)
 
 __all__ = [
     "Base",
@@ -10,4 +18,7 @@ __all__ = [
     "Category",
     "Article",
     "ArticleCategory",
+    "ArticleAnalysis",
+    "BatchProcessingSession",
+    "BatchProcessingRecord",
 ]

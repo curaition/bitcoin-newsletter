@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signal Analysis - Article #184</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+        }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-menu {
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-right: 3px solid #3b82f6;
+        }
+
+        .nav-icon {
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .breadcrumb a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .page-header {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 20px;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .article-reference {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-bottom: 16px;
+        }
+
+        .signal-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .overview-metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .signal-strength {
+            color: #3b82f6;
+        }
+
+        .confidence-high {
+            color: #10b981;
+        }
+
+        .cost-value {
+            color: #f59e0b;
+        }
+
+        .signals-count {
+            color: #8b5cf6;
+        }
+
+        .action-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .signals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .signal-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .signal-count {
+            background: #e2e8f0;
+            color: #64748b;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .signal-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+
+        .signal-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .signal-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .signal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .signal-type {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .confidence-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .confidence-track {
+            width: 60px;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+
+        .confidence-text {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .signal-description {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .signal-details {
+            space-y: 8px;
+        }
+
+        .detail-row {
+            margin-bottom: 8px;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-bottom: 4px;
+        }
+
+        .detail-content {
+            color: #475569;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .timeframe-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .pattern-anomaly .signal-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .adjacent-connection .signal-type {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .narrative-gap .signal-type {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .deviation-indicator {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .domain-tag {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+
+        .validation-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            grid-column: 1 / -1;
+        }
+
+        .validation-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .validation-content {
+            padding: 20px;
+        }
+
+        .validation-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .validation-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .status-validated {
+            color: #10b981;
+        }
+
+        .status-contradicted {
+            color: #ef4444;
+        }
+
+        .status-inconclusive {
+            color: #f59e0b;
+        }
+
+        @media (max-width: 768px) {
+            .signals-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .signal-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .header-top {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .header-actions {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">⚡ Admin</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">📰</span>
+                    Articles
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    System
+                </a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="breadcrumb">
+                <a href="#">📊 Dashboard</a>
+                <span>›</span>
+                <a href="#">📰 Articles</a>
+                <span>›</span>
+                <a href="#">Article #184</a>
+                <span>›</span>
+                <span>🎯 Signal Analysis</span>
+            </div>
+
+            <div class="page-header">
+                <div class="header-top">
+                    <div class="header-content">
+                        <h1 class="page-title">🎯 Signal Analysis</h1>
+                        <div class="article-reference">
+                            <strong>$9,600 Ethereum? This Is the Target for ETH to Match the Historical Ratio</strong><br>
+                            Crypto Potato • August 15, 2025 • by Chayanika Deka
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <a href="#" class="action-btn">← Back to Article</a>
+                        <a href="#" class="action-btn">📤 Export Signals</a>
+                    </div>
+                </div>
+
+                <div class="signal-overview">
+                    <div class="overview-metric">
+                        <div class="metric-value signal-strength">64%</div>
+                        <div class="metric-label">Signal Strength</div>
+                    </div>
+                    <div class="overview-metric">
+                        <div class="metric-value confidence-high">82%</div>
+                        <div class="metric-label">Avg Confidence</div>
+                    </div>
+                    <div class="overview-metric">
+                        <div class="metric-value cost-value">$0.28</div>
+                        <div class="metric-label">Analysis Cost</div>
+                    </div>
+                    <div class="overview-metric">
+                        <div class="metric-value signals-count">2</div>
+                        <div class="metric-label">Total Signals</div>
+                    </div>
+                    <div class="overview-metric">
+                        <div class="metric-value">4.1s</div>
+                        <div class="metric-label">Processing Time</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="signals-grid">
+                <!-- Weak Signals Card -->
+                <div class="signal-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>🎯 Weak Signals</span>
+                            <span class="signal-count">1</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="signal-item">
+                            <div class="signal-header">
+                                <span class="signal-type">Technical Analysis Pattern</span>
+                                <div class="confidence-bar">
+                                    <div class="confidence-track">
+                                        <div class="confidence-fill" style="width: 75%"></div>
+                                    </div>
+                                    <span class="confidence-text">75%</span>
+                                </div>
+                            </div>
+
+                            <div class="signal-description">
+                                ETH/BTC ratio analysis focusing exclusively on technical breakouts without considering fundamental drivers
+                            </div>
+
+                            <div class="signal-details">
+                                <div class="detail-row">
+                                    <div class="detail-label">Implications:</div>
+                                    <div class="detail-content">
+                                        Analysis misses key fundamental factors like DeFi activity, staking yields, and ecosystem development that drive ETH demand. Technical-only view provides incomplete market picture.
+                                    </div>
+                                </div>
+
+                                <div class="detail-row">
+                                    <div class="detail-label">Expected Timeframe:</div>
+                                    <div class="detail-content">
+                                        <span class="timeframe-badge">2-4 weeks</span>
+                                    </div>
+                                </div>
+
+                                <div class="detail-row">
+                                    <div class="detail-label">Watch For:</div>
+                                    <div class="detail-content">
+                                        DeFi TVL changes, staking participation rates, Layer 2 adoption metrics that could impact ETH valuation beyond technical patterns.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pattern Anomalies Card -->
+                <div class="signal-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>📊 Pattern Anomalies</span>
+                            <span class="signal-count">0</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div style="text-align: center; padding: 20px; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 8px; opacity: 0.5;">📈</div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">No Pattern Anomalies Detected</div>
+                            <div style="font-size: 0.875rem;">This analysis follows expected patterns for technical ratio analysis.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Adjacent Connections Card -->
+                <div class="signal-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>🔗 Adjacent Connections</span>
+                            <span class="signal-count">0</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div style="text-align: center; padding: 20px; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 8px; opacity: 0.5;">🌐</div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">No Cross-Domain Connections</div>
+                            <div style="font-size: 0.875rem;">This analysis remains within traditional crypto market analysis without external connections.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Narrative Gaps Card -->
+                <div class="signal-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>💭 Narrative Gaps</span>
+                            <span class="signal-count">1</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="signal-item narrative-gap">
+                            <div class="signal-header">
+                                <span class="signal-type">Missing Fundamental Context</span>
+                                <div class="confidence-bar">
+                                    <div class="confidence-track">
+                                        <div class="confidence-fill" style="width: 82%"></div>
+                                    </div>
+                                    <span class="confidence-text">82%</span>
+                                </div>
+                            </div>
+
+                            <div class="signal-description">
+                                Missing analysis of DeFi ecosystem impact on ETH demand and institutional adoption drivers
+                            </div>
+
+                            <div class="signal-details">
+                                <div class="detail-row">
+                                    <div class="detail-label">Missing Perspectives:</div>
+                                    <div class="detail-content">
+                                        DeFi TVL trends, staking economics, Layer 2 scaling impact, institutional ETF flow drivers, regulatory environment effects on ETH valuation.
+                                    </div>
+                                </div>
+
+                                <div class="detail-row">
+                                    <div class="detail-label">Gap Significance:</div>
+                                    <div class="detail-content">
+                                        High - These fundamental factors are primary drivers of ETH demand and provide more predictive value than technical ratios alone.
+                                    </div>
+                                </div>
+
+                                <div class="detail-row">
+                                    <div class="detail-label">Potential Insights:</div>
+                                    <div class="detail-content">
+                                        Including these factors could reveal whether current ETH momentum is sustainable or primarily technical/speculative.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validation Results Card -->
+                <div class="validation-card">
+                    <div class="validation-header">
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">✅ External Validation Results</h3>
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 4px;">Research conducted via Tavily API • 3 sources consulted • $0.12 research cost</div>
+                    </div>
+                    <div class="validation-content">
+                        <div class="validation-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div>
+                                    <strong>Signal: Technical Analysis Pattern</strong>
+                                </div>
+                                <div class="validation-status status-validated">
+                                    ✅ Validated
+                                </div>
+                            </div>
+                            <div style="font-size: 0.875rem; color: #475569; margin-bottom: 8px;">
+                                <strong>Supporting Evidence:</strong> Multiple technical analysis sources confirm ETH/BTC ratio breakout above 365-day MA. Historical precedent shows similar breakouts preceded significant ETH outperformance.
+                            </div>
+                            <div style="font-size: 0.875rem; color: #475569;">
+                                <strong>Research Sources:</strong> TradingView ETH/BTC analysis, CryptoCompare technical indicators, Glassnode on-chain metrics.
+                            </div>
+                        </div>
+
+                        <div class="validation-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div>
+                                    <strong>Narrative Gap: Missing DeFi Context</strong>
+                                </div>
+                                <div class="validation-status status-validated">
+                                    ✅ Validated
+                                </div>
+                            </div>
+                            <div style="font-size: 0.875rem; color: #475569; margin-bottom: 8px;">
+                                <strong>Supporting Evidence:</strong> DeFi TVL reached $200B+ in August 2025, 15% increase from July. Layer 2 scaling solutions showing 40% growth in active addresses, indicating fundamental demand drivers beyond technical patterns.
+                            </div>
+                            <div style="font-size: 0.875rem; color: #475569;">
+                                <strong>Additional Context:</strong> Research reveals institutional ETF flows correlating with DeFi yield opportunities, suggesting fundamental analysis gap is material to price prediction accuracy.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

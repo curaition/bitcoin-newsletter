@@ -41,10 +41,34 @@ class Settings(BaseSettings):
     article_retention_hours: int = Field(default=24, alias="ARTICLE_RETENTION_HOURS")
     ingestion_schedule_hours: int = Field(default=4, alias="INGESTION_SCHEDULE_HOURS")
 
-    # AI/ML
+    # AI/ML API Keys
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
-    pydantic_ai_model: str = Field(
-        default="gemini-1.5-flash", alias="PYDANTIC_AI_MODEL"
+    tavily_api_key: Optional[str] = Field(default=None, alias="TAVILY_API_KEY")
+
+    # Agent Model Configuration (Per-Agent Flexibility)
+    content_analysis_agent_model: str = Field(
+        default="gemini-2.5-flash", alias="CONTENT_ANALYSIS_AGENT_MODEL"
+    )
+    signal_validation_agent_model: str = Field(
+        default="gemini-2.5-flash", alias="SIGNAL_VALIDATION_AGENT_MODEL"
+    )
+    newsletter_generation_agent_model: str = Field(
+        default="gemini-2.5-flash", alias="NEWSLETTER_GENERATION_AGENT_MODEL"
+    )
+    cross_article_analysis_agent_model: str = Field(
+        default="gemini-2.5-flash", alias="CROSS_ARTICLE_ANALYSIS_AGENT_MODEL"
+    )
+    trend_detection_agent_model: str = Field(
+        default="gemini-2.5-flash", alias="TREND_DETECTION_AGENT_MODEL"
+    )
+
+    # Analysis Configuration
+    analysis_daily_budget: float = Field(default=15.00, alias="ANALYSIS_DAILY_BUDGET")
+    analysis_max_cost_per_article: float = Field(
+        default=0.25, alias="ANALYSIS_MAX_COST_PER_ARTICLE"
+    )
+    analysis_min_content_length: int = Field(
+        default=2000, alias="ANALYSIS_MIN_CONTENT_LENGTH"
     )
 
     # Logging
@@ -88,7 +112,7 @@ class Settings(BaseSettings):
         # Use ENVIRONMENT if explicitly set, otherwise fall back to RAILWAY_ENVIRONMENT
         if self.environment != "development":
             return self.environment
-        return getattr(self, 'railway_environment', 'development')
+        return getattr(self, "railway_environment", "development")
 
     @property
     def is_production(self) -> bool:

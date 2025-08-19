@@ -1,15 +1,19 @@
 """Repository pattern implementation for data access operations."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-
-from loguru import logger
-from sqlalchemy import and_, desc, func, select, text, or_, asc
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from datetime import UTC, datetime, timedelta
+from typing import Any, Optional
 
 from crypto_newsletter.shared.database.connection import get_db_session
-from crypto_newsletter.shared.models import Article, ArticleCategory, Category, Publisher
+from crypto_newsletter.shared.models import (
+    Article,
+    ArticleCategory,
+    Category,
+    Publisher,
+)
+from loguru import logger
+from sqlalchemy import and_, asc, case, desc, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 
 class ArticleRepository:
@@ -24,7 +28,7 @@ class ArticleRepository:
         hours: int = 24,
         limit: int = 100,
         include_categories: bool = True,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Get recent articles from the database.
 
@@ -36,14 +40,16 @@ class ArticleRepository:
         Returns:
             List of recent Article instances
         """
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
 
-        query = select(Article).where(
-            and_(
-                Article.published_on >= cutoff_time,
-                Article.status == "ACTIVE"
+        query = (
+            select(Article)
+            .where(
+                and_(Article.published_on >= cutoff_time, Article.status == "ACTIVE")
             )
-        ).order_by(desc(Article.published_on)).limit(limit)
+            .order_by(desc(Article.published_on))
+            .limit(limit)
+        )
 
         if include_categories:
             query = query.options(
@@ -72,15 +78,12 @@ class ArticleRepository:
 
     async def get_articles_by_publisher(
         self, publisher_id: int, limit: int = 50
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Get articles by publisher ID."""
         query = (
             select(Article)
             .where(
-                and_(
-                    Article.publisher_id == publisher_id,
-                    Article.status == "ACTIVE"
-                )
+                and_(Article.publisher_id == publisher_id, Article.status == "ACTIVE")
             )
             .order_by(desc(Article.published_on))
             .limit(limit)
@@ -91,18 +94,13 @@ class ArticleRepository:
 
     async def get_articles_by_category(
         self, category_name: str, limit: int = 50
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Get articles by category name."""
         query = (
             select(Article)
             .join(ArticleCategory)
             .join(Category)
-            .where(
-                and_(
-                    Category.name == category_name,
-                    Article.status == "ACTIVE"
-                )
-            )
+            .where(and_(Category.name == category_name, Article.status == "ACTIVE"))
             .order_by(desc(Article.published_on))
             .limit(limit)
         )
@@ -110,7 +108,7 @@ class ArticleRepository:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def get_article_statistics(self) -> Dict[str, Any]:
+    async def get_article_statistics(self) -> dict[str, Any]:
         """Get comprehensive article statistics."""
         # Total articles
         total_query = select(func.count(Article.id)).where(Article.status == "ACTIVE")
@@ -118,12 +116,9 @@ class ArticleRepository:
         total_articles = total_result.scalar() or 0
 
         # Recent articles (last 24 hours)
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=24)
         recent_query = select(func.count(Article.id)).where(
-            and_(
-                Article.published_on >= cutoff_time,
-                Article.status == "ACTIVE"
-            )
+            and_(Article.published_on >= cutoff_time, Article.status == "ACTIVE")
         )
         recent_result = await self.db.execute(recent_query)
         recent_articles = recent_result.scalar() or 0
@@ -164,7 +159,7 @@ class ArticleRepository:
             "recent_articles_24h": recent_articles,
             "top_publishers": top_publishers,
             "top_categories": top_categories,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
     async def get_recent_articles(
@@ -173,7 +168,7 @@ class ArticleRepository:
         offset: int = 0,
         publisher_id: Optional[int] = None,
         hours_back: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent articles with optional filtering."""
         try:
             query = select(Article).where(Article.status == "ACTIVE")
@@ -183,11 +178,13 @@ class ArticleRepository:
                 query = query.where(Article.publisher_id == publisher_id)
 
             if hours_back:
-                cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+                cutoff = datetime.now(UTC) - timedelta(hours=hours_back)
                 query = query.where(Article.published_on >= cutoff)
 
             # Apply pagination and ordering
-            query = query.order_by(Article.published_on.desc()).offset(offset).limit(limit)
+            query = (
+                query.order_by(Article.published_on.desc()).offset(offset).limit(limit)
+            )
 
             result = await self.db.execute(query)
             articles = result.scalars().all()
@@ -199,7 +196,9 @@ class ArticleRepository:
                     "title": article.title,
                     "subtitle": article.subtitle,
                     "url": article.url,
-                    "published_on": article.published_on.isoformat() if article.published_on else None,
+                    "published_on": article.published_on.isoformat()
+                    if article.published_on
+                    else None,
                     "publisher_id": article.publisher_id,
                     "language": article.language,
                     "status": article.status,
@@ -224,7 +223,7 @@ class ArticleRepository:
         end_date: Optional[str] = None,
         order_by: Optional[str] = "published_on",
         order: Optional[str] = "desc",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get articles with comprehensive filtering and search."""
         try:
             query = select(Article).join(Publisher, isouter=True)
@@ -242,19 +241,19 @@ class ArticleRepository:
 
             # Date filters
             if hours_back:
-                cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+                cutoff = datetime.now(UTC) - timedelta(hours=hours_back)
                 filters.append(Article.published_on >= cutoff)
 
             if start_date:
                 try:
-                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                    start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
                     filters.append(Article.published_on >= start_dt)
                 except ValueError:
                     logger.warning(f"Invalid start_date format: {start_date}")
 
             if end_date:
                 try:
-                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                     filters.append(Article.published_on <= end_dt)
                 except ValueError:
                     logger.warning(f"Invalid end_date format: {end_date}")
@@ -264,7 +263,7 @@ class ArticleRepository:
                 search_filter = or_(
                     Article.title.ilike(f"%{search_query}%"),
                     Article.body.ilike(f"%{search_query}%"),
-                    Article.subtitle.ilike(f"%{search_query}%")
+                    Article.subtitle.ilike(f"%{search_query}%"),
                 )
                 filters.append(search_filter)
 
@@ -292,7 +291,9 @@ class ArticleRepository:
                     "title": article.title,
                     "subtitle": article.subtitle,
                     "url": article.url,
-                    "published_on": article.published_on.isoformat() if article.published_on else None,
+                    "published_on": article.published_on.isoformat()
+                    if article.published_on
+                    else None,
                     "publisher_id": article.publisher_id,
                     "language": article.language,
                     "status": article.status,
@@ -304,12 +305,86 @@ class ArticleRepository:
             logger.error(f"Failed to get articles with filters: {e}")
             raise
 
-    async def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:
+    async def get_analysis_ready_articles(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        publisher_id: Optional[int] = None,
+        min_content_length: int = 2000,
+    ) -> list[dict[str, Any]]:
+        """
+        Get articles that are ready for signal analysis.
+
+        Args:
+            limit: Maximum number of articles to return
+            offset: Number of articles to skip for pagination
+            publisher_id: Filter by specific publisher
+            min_content_length: Minimum content length required
+
+        Returns:
+            List of analysis-ready articles
+        """
+        try:
+            # Quality publishers prioritized for analysis
+            quality_publishers = ["NewsBTC", "CoinDesk", "Crypto Potato"]
+
+            query = (
+                select(Article)
+                .join(Publisher, isouter=True)
+                .where(
+                    and_(
+                        Article.status == "ACTIVE",
+                        func.length(Article.body) >= min_content_length,
+                        Article.body.is_not(None),
+                        Article.body != "",
+                    )
+                )
+            )
+
+            # Apply publisher filter
+            if publisher_id:
+                query = query.where(Article.publisher_id == publisher_id)
+            else:
+                # Prioritize quality publishers
+                query = query.order_by(
+                    case((Publisher.name.in_(quality_publishers), 1), else_=2),
+                    desc(Article.published_on),
+                )
+
+            # Apply pagination
+            query = query.offset(offset).limit(limit)
+
+            result = await self.db.execute(query)
+            articles = result.scalars().all()
+
+            return [
+                {
+                    "id": article.id,
+                    "external_id": article.external_id,
+                    "title": article.title,
+                    "subtitle": article.subtitle,
+                    "url": article.url,
+                    "published_on": article.published_on.isoformat()
+                    if article.published_on
+                    else None,
+                    "publisher_id": article.publisher_id,
+                    "language": article.language,
+                    "status": article.status,
+                    "content_length": len(article.body) if article.body else 0,
+                    "analysis_ready": True,
+                }
+                for article in articles
+            ]
+
+        except Exception as e:
+            logger.error(f"Failed to get analysis-ready articles: {e}")
+            raise
+
+    async def get_article_by_id(self, article_id: int) -> Optional[dict[str, Any]]:
         """Get detailed article information by ID."""
         try:
             query = select(Article).where(
-                Article.id == article_id,
-                Article.status == "ACTIVE"
+                Article.id == article_id, Article.status == "ACTIVE"
             )
             result = await self.db.execute(query)
             article = result.scalar_one_or_none()
@@ -329,19 +404,25 @@ class ArticleRepository:
                 "keywords": article.keywords,
                 "language": article.language,
                 "image_url": article.image_url,
-                "published_on": article.published_on.isoformat() if article.published_on else None,
+                "published_on": article.published_on.isoformat()
+                if article.published_on
+                else None,
                 "publisher_id": article.publisher_id,
                 "source_id": article.source_id,
                 "status": article.status,
-                "created_at": article.created_at.isoformat() if article.created_at else None,
-                "updated_at": article.updated_at.isoformat() if article.updated_at else None,
+                "created_at": article.created_at.isoformat()
+                if article.created_at
+                else None,
+                "updated_at": article.updated_at.isoformat()
+                if article.updated_at
+                else None,
             }
 
         except Exception as e:
             logger.error(f"Failed to get article by ID {article_id}: {e}")
             raise
 
-    async def get_all_publishers_dict(self) -> List[Dict[str, Any]]:
+    async def get_all_publishers_dict(self) -> list[dict[str, Any]]:
         """Get all publishers as dictionaries for API responses."""
         try:
             query = select(Publisher).order_by(Publisher.name)
@@ -373,7 +454,7 @@ class PublisherRepository:
         """Initialize repository with database session."""
         self.db = db_session
 
-    async def get_all_publishers(self, active_only: bool = True) -> List[Publisher]:
+    async def get_all_publishers(self, active_only: bool = True) -> list[Publisher]:
         """Get all publishers from database."""
         query = select(Publisher)
         if active_only:
@@ -393,10 +474,7 @@ class PublisherRepository:
         """Update publisher statistics and metadata."""
         # Count articles for this publisher
         article_count_query = select(func.count(Article.id)).where(
-            and_(
-                Article.publisher_id == publisher_id,
-                Article.status == "ACTIVE"
-            )
+            and_(Article.publisher_id == publisher_id, Article.status == "ACTIVE")
         )
         result = await self.db.execute(article_count_query)
         article_count = result.scalar() or 0
@@ -407,11 +485,13 @@ class PublisherRepository:
         publisher = publisher_result.scalar_one_or_none()
 
         if publisher:
-            publisher.last_updated_ts = int(datetime.now(timezone.utc).timestamp())
+            publisher.last_updated_ts = int(datetime.now(UTC).timestamp())
             # Could add article_count field to Publisher model in future
             await self.db.commit()
 
-        logger.debug(f"Updated stats for publisher {publisher_id}: {article_count} articles")
+        logger.debug(
+            f"Updated stats for publisher {publisher_id}: {article_count} articles"
+        )
 
 
 class CategoryRepository:
@@ -421,7 +501,7 @@ class CategoryRepository:
         """Initialize repository with database session."""
         self.db = db_session
 
-    async def get_all_categories(self) -> List[Category]:
+    async def get_all_categories(self) -> list[Category]:
         """Get all categories from database."""
         query = select(Category).order_by(Category.name)
         result = await self.db.execute(query)
@@ -433,13 +513,13 @@ class CategoryRepository:
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_category_statistics(self) -> List[Dict[str, Any]]:
+    async def get_category_statistics(self) -> list[dict[str, Any]]:
         """Get statistics for all categories."""
         query = (
             select(
                 Category.name,
                 Category.category,
-                func.count(Article.id).label("article_count")
+                func.count(Article.id).label("article_count"),
             )
             .join(ArticleCategory, Category.id == ArticleCategory.category_id)
             .join(Article, ArticleCategory.article_id == Article.id)
@@ -460,21 +540,23 @@ class CategoryRepository:
 
 
 # Convenience functions for common operations
-async def get_recent_articles_with_stats(hours: int = 24) -> Dict[str, Any]:
+async def get_recent_articles_with_stats(hours: int = 24) -> dict[str, Any]:
     """Get recent articles with comprehensive statistics."""
     async with get_db_session() as db_session:
         article_repo = ArticleRepository(db_session)
-        
+
         articles = await article_repo.get_recent_articles(hours=hours)
         stats = await article_repo.get_article_statistics()
-        
+
         return {
             "articles": [
                 {
                     "id": article.id,
                     "title": article.title,
                     "url": article.url,
-                    "published_on": article.published_on.isoformat() if article.published_on else None,
+                    "published_on": article.published_on.isoformat()
+                    if article.published_on
+                    else None,
                     "publisher_id": article.publisher_id,
                 }
                 for article in articles
@@ -483,16 +565,16 @@ async def get_recent_articles_with_stats(hours: int = 24) -> Dict[str, Any]:
         }
 
 
-async def run_pipeline_with_monitoring() -> Dict[str, Any]:
+async def run_pipeline_with_monitoring() -> dict[str, Any]:
     """Run pipeline with comprehensive monitoring and logging."""
     pipeline = ArticleIngestionPipeline()
-    
+
     # Run health check first
     health = await pipeline.health_check()
     if health["status"] != "healthy":
         logger.warning(f"Pipeline health check failed: {health}")
         return {"status": "failed", "reason": "health_check_failed", "health": health}
-    
+
     # Run ingestion
     try:
         results = await pipeline.run_full_ingestion()

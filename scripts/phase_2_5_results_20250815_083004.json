@@ -1,0 +1,30 @@
+{
+  "test_metadata": {
+    "start_time": "2025-08-15T08:29:47.208737",
+    "end_time": "2025-08-15T08:30:04.989408",
+    "duration_seconds": 17.780671,
+    "total_articles": 1,
+    "successful_analyses": 0,
+    "total_cost": 0.0,
+    "average_cost_per_article": 0.0
+  },
+  "test_results": [
+    {
+      "success": false,
+      "article_id": 153,
+      "error": "'function' object has no attribute 'request_tokens'",
+      "requires_manual_review": true,
+      "costs": {
+        "total": 0.0
+      },
+      "article_metadata": {
+        "title": "Bitcoin Price Slides 4% After Strong Rally \u2013 Correction or Pause?",
+        "publisher": "NewsBTC",
+        "content_length": 2371,
+        "published_on": "2025-08-15T02:20:57+00:00",
+        "url": "https://www.newsbtc.com/analysis/btc/bitcoin-price-slides-120k/"
+      },
+      "processing_time": 16.889492988586426
+    }
+  ]
+}

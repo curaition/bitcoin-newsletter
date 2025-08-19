@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-Day Signal Intelligence Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+        }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-menu {
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-right: 3px solid #3b82f6;
+        }
+
+        .nav-icon {
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .breadcrumb a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            opacity: 0.9;
+            font-size: 0.875rem;
+        }
+
+        .time-range-selector {
+            display: flex;
+            gap: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .time-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+
+        .time-btn.active {
+            background: rgba(255,255,255,0.2);
+            opacity: 1;
+        }
+
+        .time-btn:hover {
+            opacity: 1;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .metric-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .metric-change {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .change-positive {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .change-negative {
+            background: #fecaca;
+            color: #dc2626;
+        }
+
+        .chart-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .chart-subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .chart-content {
+            padding: 20px;
+            height: 300px;
+            position: relative;
+        }
+
+        .mock-chart {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
+                        linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
+                        linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .signal-convergence {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .convergence-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .convergence-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .convergence-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 1rem;
+        }
+
+        .signal-strength-badge {
+            background: #3b82f6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .convergence-content {
+            padding: 20px;
+        }
+
+        .signal-description {
+            color: #475569;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .signal-evidence {
+            space-y: 8px;
+        }
+
+        .evidence-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .evidence-publisher {
+            font-weight: 600;
+            color: #3b82f6;
+        }
+
+        .evidence-date {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+
+        .timeline-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+
+        .timeline-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .timeline-content {
+            padding: 20px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -23px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+
+        .timeline-date {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            margin-bottom: 4px;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .timeline-description {
+            font-size: 0.875rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .network-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .network-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .network-content {
+            padding: 20px;
+        }
+
+        .domain-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .domain-item {
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .domain-tech {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .domain-finance {
+            background: #dcfce7;
+            border-color: #10b981;
+        }
+
+        .domain-culture {
+            background: #f3e8ff;
+            border-color: #8b5cf6;
+        }
+
+        .domain-politics {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+
+        .domain-icon {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .domain-label {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 2px;
+        }
+
+        .domain-count {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .publisher-ranking {
+            space-y: 12px;
+        }
+
+        .publisher-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .publisher-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .publisher-rank {
+            background: #3b82f6;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .publisher-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .publisher-metrics {
+            text-align: right;
+        }
+
+        .publisher-score {
+            font-weight: 700;
+            color: #3b82f6;
+            font-size: 1rem;
+        }
+
+        .publisher-articles {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .chart-section {
+                grid-template-columns: 1fr;
+            }
+
+            .network-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metrics-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .signal-convergence {
+                grid-template-columns: 1fr;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">⚡ Admin</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📰</span>
+                    Articles
+                </a>
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">🧠</span>
+                    Intelligence
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    System
+                </a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="breadcrumb">
+                <a href="#">📊 Dashboard</a>
+                <span>›</span>
+                <span>🧠 Signal Intelligence</span>
+            </div>
+
+            <div class="page-header">
+                <div class="header-content">
+                    <div>
+                        <h1 class="page-title">🧠 Collective Signal Intelligence</h1>
+                        <p class="page-subtitle">Multi-article pattern analysis • 142 articles • August 8-15, 2025</p>
+                    </div>
+                    <div class="time-range-selector">
+                        <button class="time-btn">24h</button>
+                        <button class="time-btn">3d</button>
+                        <button class="time-btn active">7d</button>
+                        <button class="time-btn">30d</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="dashboard-grid">
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <span class="metric-icon">🎯</span>
+                        <div class="metric-value" style="color: #3b82f6;">347</div>
+                        <div class="metric-label">Total Signals Detected</div>
+                        <span class="metric-change change-positive">+23% vs last 7d</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <span class="metric-icon">🔗</span>
+                        <div class="metric-value" style="color: #10b981;">18</div>
+                        <div class="metric-label">Convergent Patterns</div>
+                        <span class="metric-change change-positive">+12% vs last 7d</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <span class="metric-icon">📈</span>
+                        <div class="metric-value" style="color: #f59e0b;">84%</div>
+                        <div class="metric-label">Signal Validation Rate</div>
+                        <span class="metric-change change-positive">+7% vs last 7d</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <span class="metric-icon">🌐</span>
+                        <div class="metric-value" style="color: #8b5cf6;">43</div>
+                        <div class="metric-label">Cross-Domain Connections</div>
+                        <span class="metric-change change-positive">+31% vs last 7d</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="chart-section">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">Signal Detection Trends</div>
+                        <div class="chart-subtitle">Daily signal volume and strength over time</div>
+                    </div>
+                    <div class="chart-content">
+                        <div class="mock-chart">
+                            📈 Signal Volume & Strength Timeline<br>
+                            <small style="opacity: 0.7;">Peak: Aug 12 (67 signals) • Avg Strength: 78%</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">Signal Categories</div>
+                        <div class="chart-subtitle">Distribution by signal type</div>
+                    </div>
+                    <div class="chart-content">
+                        <div class="mock-chart">
+                            🎯 Signal Type Distribution<br>
+                            <small style="opacity: 0.7;">Weak Signals: 45% • Patterns: 28%<br>Adjacent: 15% • Gaps: 12%</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signal Convergence Patterns -->
+            <div class="signal-convergence">
+                <div class="convergence-card">
+                    <div class="convergence-header">
+                        <div class="convergence-title">🔥 Institutional Bitcoin Adoption Acceleration</div>
+                        <div class="signal-strength-badge">92% Strength</div>
+                    </div>
+                    <div class="convergence-content">
+                        <div class="signal-description">
+                            Multiple sources detecting unprecedented institutional Bitcoin acquisition patterns, suggesting a major shift in corporate treasury strategies beyond traditional ETF flows.
+                        </div>
+                        <div class="signal-evidence">
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">CoinDesk</span>
+                                <span>•</span>
+                                <span>MicroStrategy Q3 acquisition surge</span>
+                                <span class="evidence-date">Aug 12</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">Bitcoin.com</span>
+                                <span>•</span>
+                                <span>Fortune 500 treasury diversification signals</span>
+                                <span class="evidence-date">Aug 13</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">CoinTelegraph</span>
+                                <span>•</span>
+                                <span>Corporate bitcoin mining investments</span>
+                                <span class="evidence-date">Aug 14</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">Decrypt</span>
+                                <span>•</span>
+                                <span>JP Morgan crypto desk expansion</span>
+                                <span class="evidence-date">Aug 15</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="convergence-card">
+                    <div class="convergence-header">
+                        <div class="convergence-title">⚡ DeFi Infrastructure Evolution</div>
+                        <div class="signal-strength-badge">87% Strength</div>
+                    </div>
+                    <div class="convergence-content">
+                        <div class="signal-description">
+                            Cross-domain signals indicating DeFi is evolving beyond yield farming toward critical financial infrastructure, with traditional finance integration accelerating.
+                        </div>
+                        <div class="signal-evidence">
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">CryptoSlate</span>
+                                <span>•</span>
+                                <span>Real-world asset tokenization surge</span>
+                                <span class="evidence-date">Aug 10</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">NewsBTC</span>
+                                <span>•</span>
+                                <span>Bank partnerships with DeFi protocols</span>
+                                <span class="evidence-date">Aug 11</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">Crypto Potato</span>
+                                <span>•</span>
+                                <span>Enterprise yield management platforms</span>
+                                <span class="evidence-date">Aug 14</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="convergence-card">
+                    <div class="convergence-header">
+                        <div class="convergence-title">🌐 Regulatory Clarity Momentum</div>
+                        <div class="signal-strength-badge">79% Strength</div>
+                    </div>
+                    <div class="convergence-content">
+                        <div class="signal-description">
+                            Political and regulatory signals converging on accelerated crypto policy clarification, potentially driven by economic competitiveness concerns.
+                        </div>
+                        <div class="signal-evidence">
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">CoinDesk</span>
+                                <span>•</span>
+                                <span>Bipartisan crypto legislation progress</span>
+                                <span class="evidence-date">Aug 9</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">Bitcoin.com</span>
+                                <span>•</span>
+                                <span>EU crypto framework implementation</span>
+                                <span class="evidence-date">Aug 12</span>
+                            </div>
+                            <div class="evidence-item">
+                                <span class="evidence-publisher">Decrypt</span>
+                                <span>•</span>
+                                <span>Fed digital dollar research acceleration</span>
+                                <span class="evidence-date">Aug 13</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Evolution -->
+            <div class="timeline-section">
+                <div class="timeline-header">
+                    <div class="chart-title">📅 Narrative Evolution Timeline</div>
+                    <div class="chart-subtitle">How key themes developed and connected over the 7-day period</div>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-date">Aug 8</div>
+                            <div class="timeline-title">Initial ETF Flow Signals</div>
+                            <div class="timeline-description">Early institutional flow patterns detected in ETF data, suggesting institutional FOMO beginning.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">Aug 10</div>
+                            <div class="timeline-title">Cross-Domain Validation</div>
+                            <div class="timeline-description">Traditional finance sources corroborating crypto institutional adoption through treasury diversification reports.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">Aug 12</div>
+                            <div class="timeline-title">Pattern Convergence Peak</div>
+                            <div class="timeline-description">Multiple signals converging: institutional adoption + regulatory clarity + technical infrastructure maturation.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">Aug 14</div>
+                            <div class="timeline-title">Adjacent Opportunity Emergence</div>
+                            <div class="timeline-description">New signals detecting enterprise blockchain adoption accelerating beyond financial use cases.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">Aug 15</div>
+                            <div class="timeline-title">Narrative Synthesis</div>
+                            <div class="timeline-description">Clear pattern: crypto transitioning from speculative asset to critical financial infrastructure.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Analysis -->
+            <div class="network-section">
+                <div class="network-card">
+                    <div class="chart-header">
+                        <div class="chart-title">🌐 Cross-Domain Signal Distribution</div>
+                        <div class="chart-subtitle">Adjacent connections by external domain</div>
+                    </div>
+                    <div class="network-content">
+                        <div class="domain-grid">
+                            <div class="domain-item domain-tech">
+                                <span class="domain-icon">💻</span>
+                                <div class="domain-label">Technology</div>
+                                <div class="domain-count">23</div>
+                            </div>
+                            <div class="domain-item domain-finance">
+                                <span class="domain-icon">🏦</span>
+                                <div class="domain-label">Finance</div>
+                                <div class="domain-count">18</div>
+                            </div>
+                            <div class="domain-item domain-politics">
+                                <span class="domain-icon">🏛️</span>
+                                <div class="domain-label">Politics</div>
+                                <div class="domain-count">12</div>
+                            </div>
+                            <div class="domain-item domain-culture">
+                                <span class="domain-icon">🎭</span>
+                                <div class="domain-label">Culture</div>
+                                <div class="domain-count">8</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="network-card">
+                    <div class="chart-header">
+                        <div class="chart-title">🏆 Publisher Intelligence Ranking</div>
+                        <div class="chart-subtitle">Signal quality and uniqueness scores</div>
+                    </div>
+                    <div class="network-content">
+                        <div class="publisher-ranking">
+                            <div class="publisher-item">
+                                <div class="publisher-info">
+                                    <div class="publisher-rank">1</div>
+                                    <div class="publisher-name">CoinDesk</div>
+                                </div>
+                                <div class="publisher-metrics">
+                                    <div class="publisher-score">94</div>
+                                    <div class="publisher-articles">23 articles</div>
+                                </div>
+                            </div>
+                            <div class="publisher-item">
+                                <div class="publisher-info">
+                                    <div class="publisher-rank">2</div>
+                                    <div class="publisher-name">Decrypt</div>
+                                </div>
+                                <div class="publisher-metrics">
+                                    <div class="publisher-score">87</div>
+                                    <div class="publisher-articles">18 articles</div>
+                                </div>
+                            </div>
+                            <div class="publisher-item">
+                                <div class="publisher-info">
+                                    <div class="publisher-rank">3</div>
+                                    <div class="publisher-name">Bitcoin.com</div>
+                                </div>
+                                <div class="publisher-metrics">
+                                    <div class="publisher-score">82</div>
+                                    <div class="publisher-articles">31 articles</div>
+                                </div>
+                            </div>
+                            <div class="publisher-item">
+                                <div class="publisher-info">
+                                    <div class="publisher-rank">4</div>
+                                    <div class="publisher-name">CoinTelegraph</div>
+                                </div>
+                                <div class="publisher-metrics">
+                                    <div class="publisher-score">79</div>
+                                    <div class="publisher-articles">27 articles</div>
+                                </div>
+                            </div>
+                            <div class="publisher-item">
+                                <div class="publisher-info">
+                                    <div class="publisher-rank">5</div>
+                                    <div class="publisher-name">NewsBTC</div>
+                                </div>
+                                <div class="publisher-metrics">
+                                    <div class="publisher-score">73</div>
+                                    <div class="publisher-articles">19 articles</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

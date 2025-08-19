@@ -29,7 +29,7 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import { useArticles } from '@/hooks/api/useArticles';
+import { useArticles, useAnalysisReadyArticles } from '@/hooks/api/useArticles';
 import { usePublisherLookup } from '@/hooks/api/usePublishers';
 import { formatDistanceToNow } from 'date-fns';
 import type { ArticleListParams } from '../../../../shared/types/api';
@@ -38,6 +38,7 @@ export function ArticlesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAnalysisReady, setShowAnalysisReady] = useState(false);
   const [filters, setFilters] = useState<ArticleListParams>({
     limit: 20,
     page: 1,
@@ -64,13 +65,15 @@ export function ArticlesPage() {
     }));
   }, [debouncedSearch, currentPage]);
 
-  // Real API data
+  // Real API data - switch between all articles and analysis-ready articles
   const {
     data: articlesResponse,
     isLoading,
     error,
     refetch
-  } = useArticles(filters);
+  } = showAnalysisReady
+    ? useAnalysisReadyArticles(filters)
+    : useArticles(filters);
 
   // Publisher lookup for name resolution
   const { getPublisherName } = usePublisherLookup();
@@ -89,6 +92,17 @@ export function ArticlesPage() {
         return <Badge variant="destructive">Deleted</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getAnalysisReadinessBadge = (article: any) => {
+    const contentLength = article.content_length || (article.body?.length || 0);
+    const isReady = contentLength >= 2000;
+
+    if (isReady) {
+      return <Badge variant="default" className="text-xs">Analysis Ready</Badge>;
+    } else {
+      return <Badge variant="outline" className="text-xs">Too Short ({contentLength} chars)</Badge>;
     }
   };
 
@@ -145,27 +159,48 @@ export function ArticlesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search articles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="pl-10"
-                />
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search articles..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    className="pl-10"
+                  />
+                </div>
               </div>
+              <Button onClick={handleSearch} disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 mr-2" />
+                )}
+                Search
+              </Button>
             </div>
-            <Button onClick={handleSearch} disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4 mr-2" />
+
+            {/* Analysis-Ready Filter */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showAnalysisReady ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowAnalysisReady(!showAnalysisReady);
+                  setCurrentPage(1);
+                }}
+              >
+                {showAnalysisReady ? "All Articles" : "Analysis-Ready Only"}
+              </Button>
+              {showAnalysisReady && (
+                <Badge variant="secondary" className="text-xs">
+                  ≥2000 characters • Quality publishers prioritized
+                </Badge>
               )}
-              Search
-            </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -206,6 +241,7 @@ export function ArticlesPage() {
                   <TableHead>Publisher</TableHead>
                   <TableHead>Published</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Analysis</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -243,6 +279,9 @@ export function ArticlesPage() {
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(article.status)}
+                    </TableCell>
+                    <TableCell>
+                      {getAnalysisReadinessBadge(article)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1">

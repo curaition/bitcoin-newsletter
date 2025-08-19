@@ -1,14 +1,11 @@
 """Celery application configuration and setup."""
 
 # Essential imports for Railway compatibility
-import redis  # Required before Kombu imports
-import encodings.idna  # Required for Railway containers
 
 from celery import Celery
 from celery.schedules import crontab
-from kombu import Queue
-
 from crypto_newsletter.shared.config.settings import get_settings
+from kombu import Queue
 
 
 def create_celery_app() -> Celery:
@@ -19,6 +16,7 @@ def create_celery_app() -> Celery:
     if settings.service_type == "beat":
         try:
             from crypto_newsletter.shared.django_minimal import setup_django
+
             setup_django()
         except Exception as e:
             # Log warning but don't fail - beat service will handle this
@@ -31,21 +29,27 @@ def create_celery_app() -> Celery:
     celery_app.conf.update(
         broker_url=settings.effective_celery_broker_url,
         result_backend=settings.effective_celery_result_backend,
-        
         # Task serialization
         task_serializer="json",
         accept_content=["json"],
         result_serializer="json",
         timezone="UTC",
         enable_utc=True,
-        
         # Task routing and queues
         task_routes={
-            "crypto_newsletter.core.scheduling.tasks.ingest_articles": {"queue": "ingestion"},
-            "crypto_newsletter.core.scheduling.tasks.health_check": {"queue": "monitoring"},
-            "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles": {"queue": "maintenance"},
+            "crypto_newsletter.core.scheduling.tasks.ingest_articles": {
+                "queue": "ingestion"
+            },
+            "crypto_newsletter.core.scheduling.tasks.health_check": {
+                "queue": "monitoring"
+            },
+            "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles": {
+                "queue": "maintenance"
+            },
+            "crypto_newsletter.newsletter.tasks.*": {"queue": "newsletter"},
+            "crypto_newsletter.newsletter.batch.*": {"queue": "batch_processing"},
+            "crypto_newsletter.newsletter.publishing.*": {"queue": "publishing"},
         },
-        
         # Define queues
         task_default_queue="default",
         task_queues=(
@@ -53,43 +57,40 @@ def create_celery_app() -> Celery:
             Queue("ingestion", routing_key="ingestion"),
             Queue("monitoring", routing_key="monitoring"),
             Queue("maintenance", routing_key="maintenance"),
+            Queue("newsletter", routing_key="newsletter"),
+            Queue("batch_processing", routing_key="batch_processing"),
+            Queue("publishing", routing_key="publishing"),
         ),
-        
         # Worker configuration - use solo pool to avoid mmap issues in containers
         worker_pool="solo",  # Changed from prefork to avoid mmap dependency
         worker_concurrency=1,  # Solo pool only supports concurrency=1
         worker_max_tasks_per_child=1000,
         worker_disable_rate_limits=False,
-        
         # Task execution settings
         task_time_limit=1800,  # 30 minutes
         task_soft_time_limit=1500,  # 25 minutes
         task_acks_late=True,
         task_reject_on_worker_lost=True,
-        
         # Result backend settings
         result_expires=3600,  # 1 hour
         result_persistent=True,
-
         # Redis connection resilience settings
         broker_connection_retry_on_startup=True,
         broker_connection_max_retries=10,
         broker_connection_retry=True,
         broker_heartbeat=30,
         broker_pool_limit=10,
-
         # Redis-specific settings for connection stability
-        redis_socket_timeout=30,              # 30 seconds (vs default 120)
-        redis_socket_connect_timeout=10,      # 10 seconds connection timeout
-        redis_retry_on_timeout=True,          # Retry on timeout
-        redis_max_connections=20,             # Increase connection pool
-        redis_socket_keepalive=True,          # Enable TCP keepalive
-        redis_socket_keepalive_options={      # TCP keepalive options
+        redis_socket_timeout=30,  # 30 seconds (vs default 120)
+        redis_socket_connect_timeout=10,  # 10 seconds connection timeout
+        redis_retry_on_timeout=True,  # Retry on timeout
+        redis_max_connections=20,  # Increase connection pool
+        redis_socket_keepalive=True,  # Enable TCP keepalive
+        redis_socket_keepalive_options={  # TCP keepalive options
             "TCP_KEEPIDLE": 1,
             "TCP_KEEPINTVL": 3,
             "TCP_KEEPCNT": 5,
         },
-        
         # Beat schedule for periodic tasks
         beat_schedule={
             "ingest-articles-every-4-hours": {
@@ -100,9 +101,9 @@ def create_celery_app() -> Celery:
                     "retry_policy": {
                         "max_retries": 3,
                         "interval_start": 60,  # 1 minute
-                        "interval_step": 60,   # 1 minute increments
-                        "interval_max": 300,   # 5 minutes max
-                    }
+                        "interval_step": 60,  # 1 minute increments
+                        "interval_max": 300,  # 5 minutes max
+                    },
                 },
             },
             "health-check-every-5-minutes": {
@@ -115,37 +116,52 @@ def create_celery_app() -> Celery:
                 "schedule": crontab(minute=0, hour=2),  # Daily at 2 AM UTC
                 "options": {"priority": 5},
             },
+            "analyze-recent-articles-every-6-hours": {
+                "task": "crypto_newsletter.analysis.tasks.analyze_recent_articles",
+                "schedule": crontab(minute=30, hour="*/6"),  # Every 6 hours at :30
+                "options": {
+                    "priority": 7,
+                    "retry_policy": {
+                        "max_retries": 2,
+                        "interval_start": 300,  # 5 minutes
+                        "interval_step": 300,  # 5 minute increments
+                        "interval_max": 900,  # 15 minutes max
+                    },
+                },
+            },
         },
-
         # Beat scheduler configuration - only use database scheduler for beat service
-        beat_scheduler='django_celery_beat.schedulers:DatabaseScheduler' if settings.service_type == "beat" else 'celery.beat:PersistentScheduler',
-
+        beat_scheduler="django_celery_beat.schedulers:DatabaseScheduler"
+        if settings.service_type == "beat"
+        else "celery.beat:PersistentScheduler",
         # Monitoring and logging
         worker_send_task_events=True,
         task_send_sent_event=True,
-        
         # Error handling
         task_annotations={
             "*": {
                 "rate_limit": "100/m",  # 100 tasks per minute max
-                "time_limit": 1800,     # 30 minutes
-                "soft_time_limit": 1500, # 25 minutes
+                "time_limit": 1800,  # 30 minutes
+                "soft_time_limit": 1500,  # 25 minutes
             }
         },
     )
-    
+
     # Auto-discover tasks
-    celery_app.autodiscover_tasks([
-        "crypto_newsletter.core.scheduling",
-    ])
-    
+    celery_app.autodiscover_tasks(
+        [
+            "crypto_newsletter.core.scheduling",
+            "crypto_newsletter.analysis",
+        ]
+    )
+
     return celery_app
 
 
 # Celery configuration for different environments
 class CeleryConfig:
     """Celery configuration class."""
-    
+
     @staticmethod
     def development_config(app: Celery) -> None:
         """Configure Celery for development environment."""
@@ -155,7 +171,7 @@ class CeleryConfig:
             worker_log_level="DEBUG",
             beat_schedule_filename="celerybeat-schedule-dev",
         )
-    
+
     @staticmethod
     def production_config(app: Celery) -> None:
         """Configure Celery for production environment."""
@@ -164,20 +180,16 @@ class CeleryConfig:
             worker_log_level="WARNING",  # Reduced from INFO to prevent log spam
             worker_hijack_root_logger=False,
             beat_schedule_filename="celerybeat-schedule-prod",
-
             # Production optimizations
             worker_prefetch_multiplier=1,
             task_compression="gzip",
             result_compression="gzip",
-
             # Enhanced monitoring
             worker_send_task_events=True,
             task_send_sent_event=True,
-
             # Production error handling
             task_reject_on_worker_lost=True,
             task_acks_late=True,
-
             # Enhanced Redis connection resilience for production
             broker_connection_retry_on_startup=True,
             broker_connection_max_retries=15,  # More retries in production
@@ -185,7 +197,7 @@ class CeleryConfig:
             redis_socket_timeout=45,  # Longer timeout for production
             redis_socket_connect_timeout=15,  # Longer connection timeout
         )
-    
+
     @staticmethod
     def testing_config(app: Celery) -> None:
         """Configure Celery for testing environment."""

@@ -1,6 +1,6 @@
 /**
  * Article API Hooks
- * 
+ *
  * React hooks for article-related API operations using TanStack Query
  */
 
@@ -26,7 +26,7 @@ export interface UseArticlesOptions extends ArticleListParams {
 
 export function useArticles(options: UseArticlesOptions = {}) {
   const { enabled = true, refetchInterval, ...params } = options;
-  
+
   return useQuery({
     queryKey: queryKeys.articleList(params),
     queryFn: () => apiClient.getArticles(params),
@@ -59,11 +59,44 @@ export function useArticles(options: UseArticlesOptions = {}) {
 
 export function useArticle(id: number, options: { enabled?: boolean } = {}) {
   const { enabled = true } = options;
-  
+
   return useQuery({
     queryKey: queryKeys.article(id),
     queryFn: () => apiClient.getArticle(id),
     enabled: enabled && !!id,
+  });
+}
+
+// ============================================================================
+// Analysis-Ready Articles Hook
+// ============================================================================
+
+export function useAnalysisReadyArticles(options: UseArticlesOptions = {}) {
+  const { enabled = true, refetchInterval, ...params } = options;
+
+  return useQuery({
+    queryKey: [...queryKeys.articles, 'analysis-ready', params],
+    queryFn: () => apiClient.getAnalysisReadyArticles(params),
+    enabled,
+    refetchInterval,
+    select: (data: Article[]) => {
+      // Transform simple array to expected structure
+      const limit = params.limit || 20;
+      const page = params.page || 1;
+      const offset = params.offset || ((page - 1) * limit);
+
+      return {
+        articles: data,
+        pagination: {
+          total: data.length,
+          page,
+          limit,
+          offset,
+          hasNext: data.length === limit,
+          hasPrevious: page > 1,
+        }
+      };
+    },
   });
 }
 
@@ -73,7 +106,7 @@ export function useArticle(id: number, options: { enabled?: boolean } = {}) {
 
 export function useArticleSearch(searchQuery: string, options: Omit<ArticleListParams, 'search'> = {}) {
   const params = { ...options, search: searchQuery };
-  
+
   return useQuery({
     queryKey: queryKeys.articleList(params),
     queryFn: () => apiClient.getArticles(params),
@@ -123,17 +156,17 @@ export function useInfiniteArticles(params: Omit<ArticleListParams, 'page' | 'of
 
 export function useManualIngest() {
   // const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (params: ManualIngestRequest) => 
+    mutationFn: (params: ManualIngestRequest) =>
       apiClient.triggerManualIngest(params),
     onSuccess: (result: IngestionResult) => {
       // Invalidate article lists to show new articles
       queryInvalidation.articleList();
-      
+
       // Invalidate system status to show updated stats
       queryInvalidation.system();
-      
+
       console.log('Manual ingestion completed:', result);
     },
     onError: (error) => {
@@ -148,7 +181,7 @@ export function useManualIngest() {
 
 export function usePrefetchArticle() {
   const queryClient = useQueryClient();
-  
+
   return (id: number) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.article(id),
@@ -160,7 +193,7 @@ export function usePrefetchArticle() {
 
 export function usePrefetchArticles() {
   const queryClient = useQueryClient();
-  
+
   return (params: ArticleListParams = {}) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.articleList(params),
@@ -207,35 +240,35 @@ export function useArticleNavigation(currentArticleId: number) {
 
 export function useArticleCache() {
   const queryClient = useQueryClient();
-  
+
   return {
     // Get cached article
     getCachedArticle: (id: number): Article | undefined => {
       return queryClient.getQueryData(queryKeys.article(id));
     },
-    
+
     // Set article in cache
     setCachedArticle: (id: number, article: Article) => {
       queryClient.setQueryData(queryKeys.article(id), article);
     },
-    
+
     // Remove article from cache
     removeCachedArticle: (id: number) => {
       queryClient.removeQueries({ queryKey: queryKeys.article(id) });
     },
-    
+
     // Get cached article list
     getCachedArticleList: (params: ArticleListParams = {}): any => {
       return queryClient.getQueryData(queryKeys.articleList(params));
     },
-    
+
     // Update article in all relevant caches
     updateArticleInCache: (id: number, updater: (article: Article) => Article) => {
       // Update single article cache
-      queryClient.setQueryData(queryKeys.article(id), (old: Article | undefined) => 
+      queryClient.setQueryData(queryKeys.article(id), (old: Article | undefined) =>
         old ? updater(old) : undefined
       );
-      
+
       // Update article in list caches
       queryClient.setQueriesData(
         { queryKey: queryKeys.articles, predicate: (query) => query.queryKey[1] === 'list' },

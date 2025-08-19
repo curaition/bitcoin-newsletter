@@ -1,6 +1,6 @@
 /**
  * API Client for Bitcoin Newsletter Admin Dashboard
- * 
+ *
  * Uses shared types for type-safe API communication with the FastAPI backend
  */
 
@@ -42,7 +42,7 @@ export class AdminAPIClient {
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const url = buildApiUrl(this.baseUrl, API_ENDPOINTS.login);
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -52,7 +52,7 @@ export class AdminAPIClient {
     });
 
     const result = await processApiResponse<LoginResponse>(response);
-    
+
     if (result.error) {
       throw new SharedAPIError(result.status, result.error.message, result.error.code);
     }
@@ -129,6 +129,24 @@ export class AdminAPIClient {
     return result.data!;
   }
 
+  async getAnalysisReadyArticles(params: ArticleListParams = {}): Promise<Article[]> {
+    const url = buildApiUrl(this.baseUrl, `${API_ENDPOINTS.articles}/analysis-ready`, params);
+    const headers = createAuthHeaders(this.getToken());
+
+    const fetchArticles = async () => {
+      const response = await fetch(url, { headers });
+      const result = await processApiResponse<Article[]>(response);
+
+      if (result.error) {
+        throw new SharedAPIError(result.status, result.error.message, result.error.code);
+      }
+
+      return result.data!;
+    };
+
+    return withRetry(fetchArticles, DEFAULT_RETRY_OPTIONS);
+  }
+
   // ============================================================================
   // Publisher Methods
   // ============================================================================
@@ -157,7 +175,7 @@ export class AdminAPIClient {
 
     const response = await fetch(url, { headers });
     const result = await processApiResponse<SystemStatusResponse>(response);
-    
+
     if (result.error) {
       throw new SharedAPIError(result.status, result.error.message, result.error.code);
     }
