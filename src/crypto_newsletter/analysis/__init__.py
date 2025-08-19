@@ -12,7 +12,7 @@ from .dependencies import AnalysisDependencies, CostTracker
 from .models.analysis import ContentAnalysis
 from .models.signals import AdjacentConnection, PatternAnomaly, WeakSignal
 from .models.validation import SignalValidation, ValidationResult
-from .tasks import analyze_article_task, analyze_recent_articles_task
+from .tasks import analyze_article_task
 
 __all__ = [
     "content_analysis_agent",
@@ -27,5 +27,4 @@ __all__ = [
     "AnalysisDependencies",
     "CostTracker",
     "analyze_article_task",
-    "analyze_recent_articles_task",
 ]

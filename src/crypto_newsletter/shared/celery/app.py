@@ -116,19 +116,8 @@ def create_celery_app() -> Celery:
                 "schedule": crontab(minute=0, hour=2),  # Daily at 2 AM UTC
                 "options": {"priority": 5},
             },
-            "analyze-recent-articles-every-6-hours": {
-                "task": "crypto_newsletter.analysis.tasks.analyze_recent_articles",
-                "schedule": crontab(minute=30, hour="*/6"),  # Every 6 hours at :30
-                "options": {
-                    "priority": 7,
-                    "retry_policy": {
-                        "max_retries": 2,
-                        "interval_start": 300,  # 5 minutes
-                        "interval_step": 300,  # 5 minute increments
-                        "interval_max": 900,  # 15 minutes max
-                    },
-                },
-            },
+# Note: analyze-recent-articles task removed - batch processing is now handled
+# by the dedicated batch processing system via manual/API triggers
         },
         # Beat scheduler configuration - only use database scheduler for beat service
         beat_scheduler="django_celery_beat.schedulers:DatabaseScheduler"
