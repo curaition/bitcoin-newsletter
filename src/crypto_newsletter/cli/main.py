@@ -254,7 +254,8 @@ def worker(
     loglevel: str = typer.Option("INFO", help="Logging level"),
     concurrency: int = typer.Option(2, help="Number of worker processes"),
     queues: str = typer.Option(
-        "default,ingestion,monitoring,maintenance", help="Queues to consume from"
+        "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
+        help="Queues to consume from"
     ),
 ) -> None:
     """Start Celery worker for background task processing."""

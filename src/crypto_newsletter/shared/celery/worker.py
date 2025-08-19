@@ -80,7 +80,7 @@ def setup_signal_handlers():
 def start_worker(
     loglevel: str = "INFO",
     concurrency: int = 2,
-    queues: str = "default,ingestion,monitoring,maintenance",
+    queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
     **kwargs
 ) -> None:
     """
