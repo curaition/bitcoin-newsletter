@@ -110,17 +110,8 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
 
     # Run the async analysis with proper event loop handling
     try:
-        # Check if there's already an event loop running
-        try:
-            loop = asyncio.get_running_loop()
-            # If we're in an event loop, we need to run in a thread
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _run_analysis())
-                return future.result()
-        except RuntimeError:
-            # No event loop running, safe to use asyncio.run
-            return asyncio.run(_run_analysis())
+        # Use a more robust approach for AsyncIO/Celery integration
+        return _run_analysis_sync_wrapper(article_id)
     except Exception as e:
         logger.error(f"Task failed for article {article_id}: {str(e)}")
         # Don't retry on certain errors
@@ -132,6 +123,102 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                 "requires_manual_review": False,
             }
         raise
+
+
+def _run_analysis_sync_wrapper(article_id: int) -> dict[str, Any]:
+    """
+    Synchronous wrapper for analysis that works with both Celery and batch processing.
+    This function handles the AsyncIO/Celery integration properly.
+    """
+    import concurrent.futures
+    import threading
+
+    def run_in_new_thread():
+        """Run the async analysis in a completely new thread with its own event loop."""
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            # Run the async analysis function
+            async def _run_analysis_internal() -> dict[str, Any]:
+                """Internal async function to run the analysis."""
+                async with get_db_session() as db:
+                    try:
+                        # Get article from database
+                        article = await db.get(Article, article_id)
+                        if not article:
+                            raise ValueError(f"Article {article_id} not found")
+
+                        # Check if article meets minimum requirements
+                        if len(article.body or "") < analysis_settings.min_content_length:
+                            logger.warning(f"Article {article_id} too short for analysis")
+                            return {
+                                "success": False,
+                                "article_id": article_id,
+                                "error": "Article content too short for analysis",
+                                "requires_manual_review": False,
+                            }
+
+                        # Set up dependencies
+                        deps = AnalysisDependencies(
+                            db_session=db,
+                            cost_tracker=CostTracker(
+                                daily_budget=analysis_settings.daily_analysis_budget
+                            ),
+                            current_publisher=article.publisher,
+                            current_article_id=article_id,
+                            max_searches_per_validation=analysis_settings.max_searches_per_validation,
+                            min_signal_confidence=analysis_settings.min_signal_confidence,
+                        )
+
+                        # Check budget before starting
+                        if not deps.cost_tracker.can_afford(
+                            analysis_settings.max_cost_per_article
+                        ):
+                            logger.warning(f"Insufficient budget for article {article_id}")
+                            return {
+                                "success": False,
+                                "article_id": article_id,
+                                "error": "Daily analysis budget exceeded",
+                                "requires_manual_review": False,
+                            }
+
+                        # Run orchestrated analysis
+                        result = await orchestrator.analyze_article(
+                            article_id=article_id,
+                            title=article.title,
+                            body=article.body,
+                            publisher=article.publisher,
+                            deps=deps,
+                        )
+
+                        # Store results in database if successful
+                        if result["success"]:
+                            await _store_analysis_results(db, article_id, result)
+                            await db.commit()
+
+                            logger.info(
+                                f"Analysis complete for article {article_id}. "
+                                f"Cost: ${result['costs']['total']:.4f}, "
+                                f"Signals: {result['processing_metadata']['signals_found']}"
+                            )
+
+                        return result
+
+                    except Exception as e:
+                        await db.rollback()
+                        logger.error(f"Analysis failed for article {article_id}: {str(e)}")
+                        raise
+
+            return loop.run_until_complete(_run_analysis_internal())
+        finally:
+            loop.close()
+
+    # Run in a separate thread to completely isolate from any existing event loop
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(run_in_new_thread)
+        return future.result()
 
 
 async def _store_analysis_results(
