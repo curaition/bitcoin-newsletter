@@ -34,11 +34,12 @@ class DatabaseManager:
         elif url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
 
-        # Create async engine
+        # Create async engine with NullPool for worker processes
+        # This prevents connection sharing across different event loops
         self._engine = create_async_engine(
             url,
             echo=settings.debug and not settings.testing,
-            poolclass=NullPool if settings.testing else None,
+            poolclass=NullPool,  # Always use NullPool for async engines
             pool_pre_ping=True,
             pool_recycle=3600,  # 1 hour
         )
@@ -160,11 +161,37 @@ _sync_db_manager: Optional[SyncDatabaseManager] = None
 
 
 def get_db_manager() -> DatabaseManager:
-    """Get database manager singleton."""
+    """
+    Get database manager singleton with per-process initialization.
+
+    This ensures the async engine is initialized in the correct event loop
+    context for each worker process, preventing greenlet_spawn errors.
+    """
+    import os
     global _db_manager
-    if _db_manager is None:
+
+    # Get current process ID to detect worker process changes
+    current_pid = os.getpid()
+
+    # Check if we need to reinitialize for a new process
+    if (_db_manager is None or
+        not hasattr(_db_manager, '_process_id') or
+        _db_manager._process_id != current_pid):
+
+        # Close existing manager if it exists
+        if _db_manager is not None:
+            try:
+                # Use asyncio.run to properly close in sync context
+                import asyncio
+                asyncio.run(_db_manager.close())
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+        # Create new manager for this process
         _db_manager = DatabaseManager()
+        _db_manager._process_id = current_pid
         _db_manager.initialize()
+
     return _db_manager
 
 
