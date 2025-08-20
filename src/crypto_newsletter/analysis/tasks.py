@@ -152,43 +152,56 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     "reason": "Analysis already exists"
                 }
 
-            # Run async analysis using asyncio.run()
+            # Run async analysis within the existing event loop context
             logger.info(f"Starting analysis for article {article_id}")
 
-            # Create a new event loop for the async analysis
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
+            # Since we're in an AsyncIO pool, we can use asyncio.run directly
+            # without creating a new event loop
+            async def run_analysis():
                 # Create async database session for the orchestrator
                 from crypto_newsletter.shared.database.connection import get_db_manager
                 async_db_manager = get_db_manager()
 
-                async def run_analysis():
-                    async with async_db_manager.get_session() as async_session:
-                        # Create dependencies for the orchestrator
-                        from crypto_newsletter.analysis.dependencies import AnalysisDependencies
-                        deps = AnalysisDependencies(
-                            db_session=async_session,
-                            cost_tracker=cost_tracker,
-                            current_publisher=article.publisher,
-                            current_article_id=article_id,
-                            max_searches_per_validation=analysis_settings.max_searches_per_validation,
-                            min_signal_confidence=analysis_settings.min_signal_confidence,
-                        )
+                async with async_db_manager.get_session() as async_session:
+                    # Create dependencies for the orchestrator
+                    from crypto_newsletter.analysis.dependencies import AnalysisDependencies
+                    deps = AnalysisDependencies(
+                        db_session=async_session,
+                        cost_tracker=cost_tracker,
+                        current_publisher=article.publisher,
+                        current_article_id=article_id,
+                        max_searches_per_validation=analysis_settings.max_searches_per_validation,
+                        min_signal_confidence=analysis_settings.min_signal_confidence,
+                    )
 
-                        # Run the async analysis
-                        return await orchestrator.analyze_article(
-                            article_id=article_id,
-                            title=article.title,
-                            body=article.body,
-                            publisher=article.publisher,
-                            deps=deps,
-                        )
+                    # Run the async analysis
+                    return await orchestrator.analyze_article(
+                        article_id=article_id,
+                        title=article.title,
+                        body=article.body,
+                        publisher=article.publisher,
+                        deps=deps,
+                    )
 
-                analysis_result = loop.run_until_complete(run_analysis())
-            finally:
-                loop.close()
+            # Since we're in an AsyncIO pool, we can await the coroutine directly
+            # by making this function async and calling it properly
+            import concurrent.futures
+            import threading
+
+            # Run the async function in a separate thread with its own event loop
+            def run_in_thread():
+                # Create a new event loop for this thread
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(run_analysis())
+                finally:
+                    new_loop.close()
+
+            # Execute in a thread to avoid event loop conflicts
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                analysis_result = future.result()
 
             # Check if analysis was successful
             if not analysis_result.get("success", False):
