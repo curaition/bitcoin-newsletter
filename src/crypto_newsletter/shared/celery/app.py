@@ -146,7 +146,7 @@ def create_celery_app() -> Celery:
     celery_app.autodiscover_tasks(
         [
             "crypto_newsletter.core.scheduling",
-            "crypto_newsletter.analysis",
+            # "crypto_newsletter.analysis",  # Temporarily disabled - requires API keys
             "crypto_newsletter.newsletter.batch",
         ]
     )
