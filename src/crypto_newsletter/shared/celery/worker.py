@@ -2,7 +2,7 @@
 
 import signal
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from celery.signals import (
     task_failure,
@@ -13,10 +13,10 @@ from celery.signals import (
     worker_ready,
     worker_shutdown,
 )
+from crypto_newsletter.shared.celery.app import (
+    configure_celery_for_environment,
+)
 from loguru import logger
-
-from crypto_newsletter.shared.celery.app import celery_app, configure_celery_for_environment
-
 
 # Configure Celery for current environment
 app = configure_celery_for_environment()
@@ -24,13 +24,24 @@ app = configure_celery_for_environment()
 
 # Signal handlers for task lifecycle monitoring
 @task_prerun.connect
-def task_prerun_handler(sender=None, task_id=None, task=None, args=None, kwargs=None, **kwds):
+def task_prerun_handler(
+    sender=None, task_id=None, task=None, args=None, kwargs=None, **kwds
+):
     """Handle task pre-run events."""
     logger.info(f"Task starting: {task.name} [{task_id}]")
 
 
 @task_postrun.connect
-def task_postrun_handler(sender=None, task_id=None, task=None, args=None, kwargs=None, retval=None, state=None, **kwds):
+def task_postrun_handler(
+    sender=None,
+    task_id=None,
+    task=None,
+    args=None,
+    kwargs=None,
+    retval=None,
+    state=None,
+    **kwds,
+):
     """Handle task post-run events."""
     logger.info(f"Task completed: {task.name} [{task_id}] - State: {state}")
 
@@ -42,7 +53,9 @@ def task_success_handler(sender=None, result=None, **kwds):
 
 
 @task_failure.connect
-def task_failure_handler(sender=None, task_id=None, exception=None, traceback=None, einfo=None, **kwds):
+def task_failure_handler(
+    sender=None, task_id=None, exception=None, traceback=None, einfo=None, **kwds
+):
     """Handle task failures."""
     logger.error(f"Task failed: {sender.name} [{task_id}] - {exception}")
 
@@ -67,12 +80,12 @@ def worker_shutdown_handler(sender=None, **kwds):
 
 def setup_signal_handlers():
     """Set up signal handlers for graceful shutdown."""
-    
+
     def signal_handler(signum, frame):
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-        app.control.broadcast('shutdown')
+        app.control.broadcast("shutdown")
         sys.exit(0)
-    
+
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -81,11 +94,11 @@ def start_worker(
     loglevel: str = "INFO",
     concurrency: int = 10,  # Moderate concurrency for AsyncIO pool
     queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Start Celery worker with specified configuration.
-    
+
     Args:
         loglevel: Logging level for the worker
         concurrency: Number of concurrent worker processes
@@ -93,26 +106,30 @@ def start_worker(
         **kwargs: Additional worker options
     """
     setup_signal_handlers()
-    
-    logger.info(f"Starting Celery worker - concurrency: {concurrency}, queues: {queues}")
+
+    logger.info(
+        f"Starting Celery worker - concurrency: {concurrency}, queues: {queues}"
+    )
 
     # Configure AsyncIO pool as custom worker pool
     import os
-    os.environ["CELERY_CUSTOM_WORKER_POOL"] = (
-        "celery_aio_pool.pool:AsyncIOPool"
-    )
+
+    os.environ["CELERY_CUSTOM_WORKER_POOL"] = "celery_aio_pool.pool:AsyncIOPool"
 
     # Start the worker with AsyncIO pool
-    app.worker_main([
-        "worker",
-        f"--loglevel={loglevel}",
-        f"--concurrency={concurrency}",
-        f"--queues={queues}",
-        "--pool=custom",  # Use custom AsyncIO pool
-        "--without-gossip",
-        "--without-mingle",
-        "--without-heartbeat",
-    ] + [f"--{k}={v}" for k, v in kwargs.items()])
+    app.worker_main(
+        [
+            "worker",
+            f"--loglevel={loglevel}",
+            f"--concurrency={concurrency}",
+            f"--queues={queues}",
+            "--pool=custom",  # Use custom AsyncIO pool
+            "--without-gossip",
+            "--without-mingle",
+            # Removed --without-heartbeat to enable worker detection
+        ]
+        + [f"--{k}={v}" for k, v in kwargs.items()]
+    )
 
 
 def start_beat(loglevel: str = "INFO", **kwargs) -> None:
@@ -123,8 +140,8 @@ def start_beat(loglevel: str = "INFO", **kwargs) -> None:
         loglevel: Logging level for the beat scheduler
         **kwargs: Additional beat options
     """
-    import sys
     import os
+    import sys
 
     setup_signal_handlers()
 
@@ -133,6 +150,7 @@ def start_beat(loglevel: str = "INFO", **kwargs) -> None:
     # Ensure Django is set up for beat scheduler
     try:
         from crypto_newsletter.shared.django_minimal import setup_django
+
         setup_django()
         logger.info("Django setup completed for beat scheduler")
     except Exception as e:
@@ -143,8 +161,11 @@ def start_beat(loglevel: str = "INFO", **kwargs) -> None:
 
     # Start the beat scheduler using subprocess to avoid argv issues
     cmd = [
-        sys.executable, "-m", "celery",
-        "-A", "crypto_newsletter.shared.celery.app:celery_app",
+        sys.executable,
+        "-m",
+        "celery",
+        "-A",
+        "crypto_newsletter.shared.celery.app:celery_app",
         "beat",
         f"--loglevel={loglevel}",
         "--pidfile=",  # Disable pidfile for Railway
@@ -161,43 +182,46 @@ def start_beat(loglevel: str = "INFO", **kwargs) -> None:
 def start_flower(port: int = 5555, **kwargs) -> None:
     """
     Start Flower monitoring interface.
-    
+
     Args:
         port: Port to run Flower on
         **kwargs: Additional Flower options
     """
     logger.info(f"Starting Flower monitoring on port {port}")
-    
+
     # Start Flower
-    app.worker_main([
-        "flower",
-        f"--port={port}",
-        "--basic_auth=admin:admin",  # Basic auth for Railway
-    ] + [f"--{k}={v}" for k, v in kwargs.items()])
+    app.worker_main(
+        [
+            "flower",
+            f"--port={port}",
+            "--basic_auth=admin:admin",  # Basic auth for Railway
+        ]
+        + [f"--{k}={v}" for k, v in kwargs.items()]
+    )
 
 
 # Health check utilities for monitoring
-async def get_worker_health() -> Dict[str, Any]:
+async def get_worker_health() -> dict[str, Any]:
     """Get health status of Celery workers."""
     try:
         inspect = app.control.inspect()
-        
+
         # Get worker stats
         stats = inspect.stats()
         active = inspect.active()
         scheduled = inspect.scheduled()
-        
+
         if not stats:
             return {
                 "status": "unhealthy",
                 "message": "No workers available",
                 "workers": 0,
             }
-        
+
         worker_count = len(stats)
         total_active_tasks = sum(len(tasks) for tasks in (active or {}).values())
         total_scheduled_tasks = sum(len(tasks) for tasks in (scheduled or {}).values())
-        
+
         return {
             "status": "healthy",
             "message": f"{worker_count} workers active",
@@ -206,7 +230,7 @@ async def get_worker_health() -> Dict[str, Any]:
             "scheduled_tasks": total_scheduled_tasks,
             "worker_details": stats,
         }
-        
+
     except Exception as exc:
         logger.error(f"Worker health check failed: {exc}")
         return {
@@ -216,11 +240,11 @@ async def get_worker_health() -> Dict[str, Any]:
         }
 
 
-async def get_queue_health() -> Dict[str, Any]:
+async def get_queue_health() -> dict[str, Any]:
     """Get health status of Celery queues."""
     try:
         inspect = app.control.inspect()
-        
+
         # Get queue lengths (if broker supports it)
         try:
             queue_lengths = inspect.active_queues()
@@ -236,7 +260,7 @@ async def get_queue_health() -> Dict[str, Any]:
                 "message": "Queue inspection not supported by broker",
                 "queues": {},
             }
-        
+
     except Exception as exc:
         logger.error(f"Queue health check failed: {exc}")
         return {

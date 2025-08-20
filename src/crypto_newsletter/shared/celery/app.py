@@ -47,17 +47,11 @@ def create_celery_app() -> Celery:
                 "queue": "maintenance"
             },
             "crypto_newsletter.newsletter.tasks.*": {"queue": "newsletter"},
-            "crypto_newsletter.newsletter.batch.*": {
-                "queue": "batch_processing"
-            },
-            "crypto_newsletter.newsletter.publishing.*": {
-                "queue": "publishing"
-            },
+            "crypto_newsletter.newsletter.batch.*": {"queue": "batch_processing"},
+            "crypto_newsletter.newsletter.publishing.*": {"queue": "publishing"},
             # Async batch processing tasks
             "crypto_newsletter.newsletter.batch.tasks."
-            "batch_analyze_articles_async": {
-                "queue": "batch_processing"
-            },
+            "batch_analyze_articles_async": {"queue": "batch_processing"},
         },
         # Define queues
         task_default_queue="default",
@@ -90,7 +84,7 @@ def create_celery_app() -> Celery:
         broker_connection_retry_on_startup=True,
         broker_connection_max_retries=10,
         broker_connection_retry=True,
-        broker_heartbeat=30,
+        broker_heartbeat=30,  # Enable heartbeat for worker detection
         broker_pool_limit=10,
         # Redis-specific settings for connection stability
         redis_socket_timeout=30,  # 30 seconds (vs default 120)
@@ -195,7 +189,7 @@ class CeleryConfig:
             # Enhanced Redis connection resilience for production
             broker_connection_retry_on_startup=True,
             broker_connection_max_retries=15,  # More retries in production
-            broker_heartbeat=60,  # Longer heartbeat for production
+            broker_heartbeat=30,  # Shorter heartbeat for better detection
             redis_socket_timeout=45,  # Longer timeout for production
             redis_socket_connect_timeout=15,  # Longer connection timeout
         )
