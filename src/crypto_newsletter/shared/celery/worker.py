@@ -79,7 +79,7 @@ def setup_signal_handlers():
 
 def start_worker(
     loglevel: str = "INFO",
-    concurrency: int = 10,  # Higher concurrency for AsyncIO pool
+    concurrency: int = 100,  # High concurrency for Gevent pool
     queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
     **kwargs
 ) -> None:
@@ -102,7 +102,7 @@ def start_worker(
         f"--loglevel={loglevel}",
         f"--concurrency={concurrency}",
         f"--queues={queues}",
-        "--pool=celery_aio_pool.pool:AsyncIOPool",  # Use AsyncIO pool
+        "--pool=gevent",  # Use Gevent pool for async I/O
         "--without-gossip",
         "--without-mingle",
         "--without-heartbeat",

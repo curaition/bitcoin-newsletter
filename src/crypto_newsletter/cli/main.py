@@ -252,7 +252,7 @@ def version() -> None:
 @app.command()
 def worker(
     loglevel: str = typer.Option("INFO", help="Logging level"),
-    concurrency: int = typer.Option(10, help="Number of async worker tasks"),
+    concurrency: int = typer.Option(100, help="Number of gevent greenlets"),
     queues: str = typer.Option(
         "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
         help="Queues to consume from"

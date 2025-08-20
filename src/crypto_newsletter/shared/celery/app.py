@@ -70,9 +70,9 @@ def create_celery_app() -> Celery:
             Queue("batch_processing", routing_key="batch_processing"),
             Queue("publishing", routing_key="publishing"),
         ),
-        # Worker configuration - AsyncIO pool for native async support
-        # Note: Pool type set via: -P celery_aio_pool.pool:AsyncIOPool
-        worker_concurrency=10,  # AsyncIO pool supports higher concurrency
+        # Worker configuration - Gevent pool for async I/O support
+        # Note: Pool type set via: -P gevent
+        worker_concurrency=100,  # Gevent pool supports high concurrency
         # AsyncIO integration for PydanticAI agents and async batch processing
         task_track_started=True,
         task_always_eager=False,
