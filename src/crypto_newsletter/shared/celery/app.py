@@ -64,6 +64,9 @@ def create_celery_app() -> Celery:
         # Worker configuration - use solo pool to avoid mmap issues in containers
         worker_pool="solo",  # Changed from prefork to avoid mmap dependency
         worker_concurrency=1,  # Solo pool only supports concurrency=1
+        # AsyncIO integration for PydanticAI agents
+        task_track_started=True,
+        task_always_eager=False,
         worker_max_tasks_per_child=1000,
         worker_disable_rate_limits=False,
         # Task execution settings

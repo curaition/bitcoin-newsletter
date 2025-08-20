@@ -108,9 +108,19 @@ def analyze_article_task(self, article_id: int) -> dict[str, Any]:
                 logger.error(f"Analysis failed for article {article_id}: {str(e)}")
                 raise
 
-    # Run the async analysis
+    # Run the async analysis with proper event loop handling
     try:
-        return asyncio.run(_run_analysis())
+        # Check if there's already an event loop running
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're in an event loop, we need to run in a thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _run_analysis())
+                return future.result()
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run
+            return asyncio.run(_run_analysis())
     except Exception as e:
         logger.error(f"Task failed for article {article_id}: {str(e)}")
         # Don't retry on certain errors
