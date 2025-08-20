@@ -17,6 +17,94 @@ from .dependencies import AnalysisDependencies, CostTracker
 logger = logging.getLogger(__name__)
 
 
+async def analyze_article_direct(
+    article_id: int,
+    db: AsyncSession,
+    cost_tracker: CostTracker
+) -> dict[str, Any]:
+    """
+    Direct async analysis function that bypasses Celery task wrapper.
+
+    This function is designed to be called from async batch processing tasks
+    to avoid event loop conflicts. It performs the same analysis as the
+    original analyze_article_task but in a pure async context.
+
+    Args:
+        article_id: ID of the article to analyze
+        db: Async database session
+        cost_tracker: Cost tracking instance for budget monitoring
+
+    Returns:
+        Dict with analysis results and metadata
+    """
+    try:
+        # Get article from database
+        article = await db.get(Article, article_id)
+        if not article:
+            raise ValueError(f"Article {article_id} not found")
+
+        # Check if article meets minimum requirements
+        if len(article.body or "") < analysis_settings.min_content_length:
+            logger.warning(f"Article {article_id} too short for analysis")
+            return {
+                "success": False,
+                "article_id": article_id,
+                "error": "Article content too short for analysis",
+                "requires_manual_review": False,
+            }
+
+        # Set up dependencies
+        deps = AnalysisDependencies(
+            db_session=db,
+            cost_tracker=cost_tracker,
+            current_publisher=article.publisher,
+            current_article_id=article_id,
+            max_searches_per_validation=analysis_settings.max_searches_per_validation,
+            min_signal_confidence=analysis_settings.min_signal_confidence,
+        )
+
+        # Check budget before starting
+        if not cost_tracker.can_afford(analysis_settings.max_cost_per_article):
+            logger.warning(f"Insufficient budget for article {article_id}")
+            return {
+                "success": False,
+                "article_id": article_id,
+                "error": "Daily analysis budget exceeded",
+                "requires_manual_review": False,
+            }
+
+        # Run orchestrated analysis
+        result = await orchestrator.analyze_article(
+            article_id=article_id,
+            title=article.title,
+            body=article.body,
+            publisher=article.publisher,
+            deps=deps,
+        )
+
+        # Store results in database if successful
+        if result["success"]:
+            await _store_analysis_results(db, article_id, result)
+            # Note: Don't commit here - let the batch processing handle commits
+
+            logger.info(
+                f"Analysis complete for article {article_id}. "
+                f"Cost: ${result['costs']['total']:.4f}, "
+                f"Signals: {result['processing_metadata']['signals_found']}"
+            )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Direct analysis failed for article {article_id}: {str(e)}")
+        return {
+            "success": False,
+            "article_id": article_id,
+            "error": str(e),
+            "requires_manual_review": True,
+        }
+
+
 @celery_app.task(
     bind=True,
     name="crypto_newsletter.analysis.tasks.analyze_article",

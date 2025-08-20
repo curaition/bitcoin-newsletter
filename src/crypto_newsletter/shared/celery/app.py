@@ -49,6 +49,10 @@ def create_celery_app() -> Celery:
             "crypto_newsletter.newsletter.tasks.*": {"queue": "newsletter"},
             "crypto_newsletter.newsletter.batch.*": {"queue": "batch_processing"},
             "crypto_newsletter.newsletter.publishing.*": {"queue": "publishing"},
+            # Async batch processing tasks
+            "crypto_newsletter.newsletter.batch.tasks.batch_analyze_articles_async": {
+                "queue": "batch_processing"
+            },
         },
         # Define queues
         task_default_queue="default",
@@ -61,10 +65,10 @@ def create_celery_app() -> Celery:
             Queue("batch_processing", routing_key="batch_processing"),
             Queue("publishing", routing_key="publishing"),
         ),
-        # Worker configuration - use solo pool to avoid mmap issues in containers
-        worker_pool="solo",  # Changed from prefork to avoid mmap dependency
+        # Worker configuration - use solo pool for async task support
+        worker_pool="solo",  # Required for async tasks and avoids mmap issues in containers
         worker_concurrency=1,  # Solo pool only supports concurrency=1
-        # AsyncIO integration for PydanticAI agents
+        # AsyncIO integration for PydanticAI agents and async batch processing
         task_track_started=True,
         task_always_eager=False,
         worker_max_tasks_per_child=1000,
@@ -119,8 +123,8 @@ def create_celery_app() -> Celery:
                 "schedule": crontab(minute=0, hour=2),  # Daily at 2 AM UTC
                 "options": {"priority": 5},
             },
-# Note: analyze-recent-articles task removed - batch processing is now handled
-# by the dedicated batch processing system via manual/API triggers
+            # Note: analyze-recent-articles task removed - batch processing is now handled
+            # by the dedicated batch processing system via manual/API triggers
         },
         # Beat scheduler configuration - only use database scheduler for beat service
         beat_scheduler="django_celery_beat.schedulers:DatabaseScheduler"
