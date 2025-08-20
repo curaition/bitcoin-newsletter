@@ -197,11 +197,19 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     # Run the analysis
                     result = new_loop.run_until_complete(run_analysis())
 
+                    # Give extra time for any lingering async operations
+                    await_time = 0.5  # 500ms
+                    logger.debug(f"Waiting {await_time}s for any lingering operations")
+                    new_loop.run_until_complete(asyncio.sleep(await_time))
+
                     # Wait for any pending tasks to complete
                     pending_tasks = asyncio.all_tasks(new_loop)
                     if pending_tasks:
                         logger.debug(f"Waiting for {len(pending_tasks)} pending tasks to complete")
                         new_loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+
+                        # Wait a bit more after task completion
+                        new_loop.run_until_complete(asyncio.sleep(0.1))
 
                     return result
                 except Exception as e:
@@ -210,25 +218,42 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                 finally:
                     # Graceful shutdown of the event loop
                     try:
+                        # Wait a bit more before cleanup to ensure all operations finish
+                        new_loop.run_until_complete(asyncio.sleep(0.2))
+
                         # Cancel any remaining tasks
                         pending_tasks = asyncio.all_tasks(new_loop)
-                        for task in pending_tasks:
-                            task.cancel()
-
-                        # Wait a bit for cancellations to complete
                         if pending_tasks:
-                            new_loop.run_until_complete(
-                                asyncio.gather(*pending_tasks, return_exceptions=True)
-                            )
+                            logger.debug(f"Cancelling {len(pending_tasks)} remaining tasks")
+                            for task in pending_tasks:
+                                task.cancel()
+
+                            # Wait for cancellations to complete with timeout
+                            try:
+                                new_loop.run_until_complete(
+                                    asyncio.wait_for(
+                                        asyncio.gather(*pending_tasks, return_exceptions=True),
+                                        timeout=2.0  # 2 second timeout for cleanup
+                                    )
+                                )
+                            except asyncio.TimeoutError:
+                                logger.warning("Timeout waiting for task cancellations")
+
+                        # Final wait before closing
+                        new_loop.run_until_complete(asyncio.sleep(0.1))
 
                         # Close the loop gracefully
-                        new_loop.call_soon_threadsafe(new_loop.stop)
-                        new_loop.close()
+                        if not new_loop.is_closed():
+                            new_loop.close()
+
                     except Exception as cleanup_error:
                         logger.warning(f"Error during loop cleanup: {cleanup_error}")
                         # Force close if graceful cleanup fails
                         if not new_loop.is_closed():
-                            new_loop.close()
+                            try:
+                                new_loop.close()
+                            except Exception:
+                                pass  # Ignore errors during force close
 
             # Execute in a thread to avoid event loop conflicts
             with concurrent.futures.ThreadPoolExecutor() as executor:
