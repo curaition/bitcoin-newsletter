@@ -6,9 +6,13 @@ from datetime import datetime
 from typing import Any
 
 from crypto_newsletter.shared.celery.app import celery_app
-from crypto_newsletter.shared.database.connection import get_db_session
+from crypto_newsletter.shared.database.connection import (
+    get_db_session,
+    get_sync_db_session
+)
 from crypto_newsletter.shared.models import Article, ArticleAnalysis
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from .agents.orchestrator import orchestrator
 from .agents.settings import analysis_settings
@@ -102,6 +106,124 @@ async def analyze_article_direct(
             "article_id": article_id,
             "error": str(e),
             "requires_manual_review": True,
+        }
+
+
+def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str, Any]:
+    """
+    Sync wrapper for article analysis using sync database operations.
+
+    This function uses sync database operations to avoid SQLAlchemy async
+    issues in Celery workers, while still using async AI agents via asyncio.run().
+    """
+    try:
+        with get_sync_db_session() as db:
+            # Get article using sync database operations
+            article = db.query(Article).filter(Article.id == article_id).first()
+            if not article:
+                logger.error(f"Article {article_id} not found")
+                return {
+                    "success": False,
+                    "article_id": article_id,
+                    "error": f"Article {article_id} not found"
+                }
+
+            # Check if article meets minimum requirements
+            if len(article.body or "") < analysis_settings.min_content_length:
+                logger.warning(f"Article {article_id} too short for analysis")
+                return {
+                    "success": False,
+                    "article_id": article_id,
+                    "error": "Article too short for analysis"
+                }
+
+            # Check if analysis already exists
+            existing_analysis = db.query(ArticleAnalysis).filter(
+                ArticleAnalysis.article_id == article_id
+            ).first()
+
+            if existing_analysis:
+                logger.info(f"Analysis already exists for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "analysis_id": existing_analysis.id,
+                    "skipped": True,
+                    "reason": "Analysis already exists"
+                }
+
+            # Run async analysis using asyncio.run()
+            logger.info(f"Starting analysis for article {article_id}")
+
+            # Create a new event loop for the async analysis
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            try:
+                # Run the async analysis
+                analysis_result = loop.run_until_complete(
+                    orchestrator.run_async(
+                        article_content=article.body,
+                        article_title=article.title,
+                        article_url=article.url,
+                        cost_tracker=cost_tracker,
+                        current_publisher=article.publisher,
+                        current_article_id=article_id,
+                        max_searches_per_validation=analysis_settings.max_searches_per_validation,
+                        min_signal_confidence=analysis_settings.min_signal_confidence,
+                    )
+                )
+            finally:
+                loop.close()
+
+            # Store results using sync database operations
+            if analysis_result.data and hasattr(analysis_result.data, 'signals'):
+                signals = analysis_result.data.signals
+
+                # Create analysis record
+                analysis = ArticleAnalysis(
+                    article_id=article_id,
+                    signals_detected=len(signals),
+                    analysis_summary=analysis_result.data.summary,
+                    confidence_score=analysis_result.data.overall_confidence,
+                    processing_cost=cost_tracker.total_cost,
+                    raw_analysis_data={
+                        "signals": [signal.model_dump() for signal in signals],
+                        "summary": analysis_result.data.summary,
+                        "overall_confidence": analysis_result.data.overall_confidence,
+                        "processing_metadata": {
+                            "total_cost": cost_tracker.total_cost,
+                            "processing_time": cost_tracker.processing_time,
+                        }
+                    }
+                )
+
+                db.add(analysis)
+                db.commit()
+
+                logger.info(f"Analysis completed for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "analysis_id": analysis.id,
+                    "signals_detected": len(signals),
+                    "confidence_score": analysis_result.data.overall_confidence,
+                    "processing_cost": cost_tracker.total_cost
+                }
+            else:
+                logger.warning(f"No analysis data returned for article {article_id}")
+                return {
+                    "success": False,
+                    "article_id": article_id,
+                    "error": "No analysis data returned"
+                }
+
+    except Exception as e:
+        logger.error(f"Sync analysis failed for article {article_id}: {str(e)}")
+        return {
+            "success": False,
+            "article_id": article_id,
+            "error": str(e)
         }
 
 

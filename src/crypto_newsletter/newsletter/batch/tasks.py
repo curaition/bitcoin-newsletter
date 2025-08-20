@@ -77,8 +77,8 @@ async def batch_analyze_articles_async(
                             f"Processing article {article_id} in batch {batch_number}"
                         )
 
-                        # Call direct async analysis function
-                        from crypto_newsletter.analysis.tasks import analyze_article_direct
+                        # Call sync analysis function (hybrid approach)
+                        from crypto_newsletter.analysis.tasks import analyze_article_sync
                         from crypto_newsletter.analysis.dependencies import CostTracker
 
                         # Initialize cost tracker for this batch
@@ -86,9 +86,8 @@ async def batch_analyze_articles_async(
                             daily_budget=BatchProcessingConfig.MAX_TOTAL_BUDGET
                         )
 
-                        task_result = await analyze_article_direct(
+                        task_result = analyze_article_sync(
                             article_id=article_id,
-                            db=db,
                             cost_tracker=cost_tracker
                         )
 
