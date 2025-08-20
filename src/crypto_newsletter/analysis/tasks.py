@@ -197,8 +197,8 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     # Run the analysis
                     result = new_loop.run_until_complete(run_analysis())
 
-                    # Give extra time for any lingering async operations
-                    await_time = 0.5  # 500ms
+                    # Give extra time for any lingering async operations (especially HTTP calls)
+                    await_time = 2.0  # 2 seconds for HTTP operations to complete
                     logger.debug(f"Waiting {await_time}s for any lingering operations")
                     new_loop.run_until_complete(asyncio.sleep(await_time))
 
@@ -218,8 +218,8 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                 finally:
                     # Graceful shutdown of the event loop
                     try:
-                        # Wait a bit more before cleanup to ensure all operations finish
-                        new_loop.run_until_complete(asyncio.sleep(0.2))
+                        # Wait more before cleanup to ensure all HTTP operations finish
+                        new_loop.run_until_complete(asyncio.sleep(1.0))
 
                         # Cancel any remaining tasks
                         pending_tasks = asyncio.all_tasks(new_loop)
