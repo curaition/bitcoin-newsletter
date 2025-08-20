@@ -47,10 +47,15 @@ def create_celery_app() -> Celery:
                 "queue": "maintenance"
             },
             "crypto_newsletter.newsletter.tasks.*": {"queue": "newsletter"},
-            "crypto_newsletter.newsletter.batch.*": {"queue": "batch_processing"},
-            "crypto_newsletter.newsletter.publishing.*": {"queue": "publishing"},
+            "crypto_newsletter.newsletter.batch.*": {
+                "queue": "batch_processing"
+            },
+            "crypto_newsletter.newsletter.publishing.*": {
+                "queue": "publishing"
+            },
             # Async batch processing tasks
-            "crypto_newsletter.newsletter.batch.tasks.batch_analyze_articles_async": {
+            "crypto_newsletter.newsletter.batch.tasks."
+            "batch_analyze_articles_async": {
                 "queue": "batch_processing"
             },
         },
@@ -65,9 +70,9 @@ def create_celery_app() -> Celery:
             Queue("batch_processing", routing_key="batch_processing"),
             Queue("publishing", routing_key="publishing"),
         ),
-        # Worker configuration - use solo pool for async task support
-        worker_pool="solo",  # Required for async tasks and avoids mmap issues in containers
-        worker_concurrency=1,  # Solo pool only supports concurrency=1
+        # Worker configuration - AsyncIO pool for native async support
+        # Note: Pool type set via: -P celery_aio_pool.pool:AsyncIOPool
+        worker_concurrency=10,  # AsyncIO pool supports higher concurrency
         # AsyncIO integration for PydanticAI agents and async batch processing
         task_track_started=True,
         task_always_eager=False,

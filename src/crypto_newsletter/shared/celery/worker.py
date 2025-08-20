@@ -79,7 +79,7 @@ def setup_signal_handlers():
 
 def start_worker(
     loglevel: str = "INFO",
-    concurrency: int = 2,
+    concurrency: int = 10,  # Higher concurrency for AsyncIO pool
     queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
     **kwargs
 ) -> None:
@@ -96,12 +96,13 @@ def start_worker(
     
     logger.info(f"Starting Celery worker - concurrency: {concurrency}, queues: {queues}")
     
-    # Start the worker
+    # Start the worker with AsyncIO pool
     app.worker_main([
         "worker",
         f"--loglevel={loglevel}",
         f"--concurrency={concurrency}",
         f"--queues={queues}",
+        "--pool=celery_aio_pool.pool:AsyncIOPool",  # Use AsyncIO pool
         "--without-gossip",
         "--without-mingle",
         "--without-heartbeat",
