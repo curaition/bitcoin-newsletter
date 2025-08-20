@@ -79,7 +79,7 @@ def setup_signal_handlers():
 
 def start_worker(
     loglevel: str = "INFO",
-    concurrency: int = 100,  # High concurrency for Gevent pool
+    concurrency: int = 10,  # Moderate concurrency for AsyncIO pool
     queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
     **kwargs
 ) -> None:
@@ -95,14 +95,20 @@ def start_worker(
     setup_signal_handlers()
     
     logger.info(f"Starting Celery worker - concurrency: {concurrency}, queues: {queues}")
-    
+
+    # Configure AsyncIO pool as custom worker pool
+    import os
+    os.environ["CELERY_CUSTOM_WORKER_POOL"] = (
+        "celery_aio_pool.pool:AsyncIOPool"
+    )
+
     # Start the worker with AsyncIO pool
     app.worker_main([
         "worker",
         f"--loglevel={loglevel}",
         f"--concurrency={concurrency}",
         f"--queues={queues}",
-        "--pool=gevent",  # Use Gevent pool for async I/O
+        "--pool=custom",  # Use custom AsyncIO pool
         "--without-gossip",
         "--without-mingle",
         "--without-heartbeat",

@@ -19,7 +19,7 @@ dependencies = [
     "aiosqlite>=0.19.0",
     # Task Queue & Scheduling
     "celery[redis]>=5.3.0",
-    "gevent>=23.0.0", # Gevent pool for async I/O support
+    "celery-aio-pool>=0.1.0rc8", # AsyncIO pool for native async task support
     "django>=4.2,<5.0", # Minimal Django for celery-beat database scheduler
     "django-celery-beat>=2.5.0", # Database-backed beat scheduler (no dbm dependency)
     "psycopg2-binary>=2.9.0", # PostgreSQL adapter for Django
