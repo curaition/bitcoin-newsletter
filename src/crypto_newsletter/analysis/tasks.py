@@ -142,7 +142,7 @@ async def _store_analysis_results(
     content_analysis = result["content_analysis"]
     signal_validation = result.get("signal_validation")
 
-    # Create analysis record
+    # Create analysis record with correct field mappings
     analysis = ArticleAnalysis(
         article_id=article_id,
         sentiment=content_analysis.sentiment,
@@ -157,20 +157,18 @@ async def _store_analysis_results(
         analysis_confidence=content_analysis.analysis_confidence,
         signal_strength=content_analysis.signal_strength,
         uniqueness_score=content_analysis.uniqueness_score,
-        validation_results=signal_validation.validation_results
+        # Map validation results to correct database fields
+        verified_facts=signal_validation.validation_results
         if signal_validation
         else [],
-        cross_signal_insights=signal_validation.cross_signal_insights
+        research_sources=signal_validation.cross_signal_insights
         if signal_validation
         else [],
-        additional_signals=signal_validation.additional_signals
-        if signal_validation
-        else [],
-        research_cost=signal_validation.research_cost if signal_validation else 0.0,
-        total_cost=result["costs"]["total"],
-        processing_metadata=result["processing_metadata"],
-        analyzed_at=datetime.utcnow(),
-        requires_manual_review=result.get("requires_manual_review", False),
+        validation_status="COMPLETED" if signal_validation else "PENDING",
+        # Map cost and processing data to correct database fields
+        processing_time_ms=int(result.get("processing_metadata", {}).get("processing_time_ms", 0)),
+        token_usage=result.get("usage", {}).get("total_tokens", 0),
+        cost_usd=result["costs"]["total"],
     )
 
     db.add(analysis)
