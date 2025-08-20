@@ -160,63 +160,50 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
             asyncio.set_event_loop(loop)
 
             try:
-                # Run the async analysis
-                analysis_result = loop.run_until_complete(
-                    orchestrator.run_async(
-                        article_content=article.body,
-                        article_title=article.title,
-                        article_url=article.url,
-                        cost_tracker=cost_tracker,
-                        current_publisher=article.publisher,
-                        current_article_id=article_id,
-                        max_searches_per_validation=analysis_settings.max_searches_per_validation,
-                        min_signal_confidence=analysis_settings.min_signal_confidence,
-                    )
-                )
+                # Create async database session for the orchestrator
+                from crypto_newsletter.shared.database.connection import get_db_manager
+                async_db_manager = get_db_manager()
+
+                async def run_analysis():
+                    async with async_db_manager.get_session() as async_session:
+                        # Create dependencies for the orchestrator
+                        from crypto_newsletter.analysis.dependencies import AnalysisDependencies
+                        deps = AnalysisDependencies(
+                            db_session=async_session,
+                            cost_tracker=cost_tracker,
+                            current_publisher=article.publisher,
+                            current_article_id=article_id,
+                            max_searches_per_validation=analysis_settings.max_searches_per_validation,
+                            min_signal_confidence=analysis_settings.min_signal_confidence,
+                        )
+
+                        # Run the async analysis
+                        return await orchestrator.analyze_article(
+                            article_id=article_id,
+                            title=article.title,
+                            body=article.body,
+                            publisher=article.publisher,
+                            deps=deps,
+                        )
+
+                analysis_result = loop.run_until_complete(run_analysis())
             finally:
                 loop.close()
 
-            # Store results using sync database operations
-            if analysis_result.data and hasattr(analysis_result.data, 'signals'):
-                signals = analysis_result.data.signals
+            # Check if analysis was successful
+            if not analysis_result.get("success", False):
+                logger.error(f"Analysis failed for article {article_id}: {analysis_result.get('error', 'Unknown error')}")
+                return analysis_result
 
-                # Create analysis record
-                analysis = ArticleAnalysis(
-                    article_id=article_id,
-                    signals_detected=len(signals),
-                    analysis_summary=analysis_result.data.summary,
-                    confidence_score=analysis_result.data.overall_confidence,
-                    processing_cost=cost_tracker.total_cost,
-                    raw_analysis_data={
-                        "signals": [signal.model_dump() for signal in signals],
-                        "summary": analysis_result.data.summary,
-                        "overall_confidence": analysis_result.data.overall_confidence,
-                        "processing_metadata": {
-                            "total_cost": cost_tracker.total_cost,
-                            "processing_time": cost_tracker.processing_time,
-                        }
-                    }
-                )
-
-                db.add(analysis)
-                db.commit()
-
-                logger.info(f"Analysis completed for article {article_id}")
-                return {
-                    "success": True,
-                    "article_id": article_id,
-                    "analysis_id": analysis.id,
-                    "signals_detected": len(signals),
-                    "confidence_score": analysis_result.data.overall_confidence,
-                    "processing_cost": cost_tracker.total_cost
-                }
-            else:
-                logger.warning(f"No analysis data returned for article {article_id}")
-                return {
-                    "success": False,
-                    "article_id": article_id,
-                    "error": "No analysis data returned"
-                }
+            # The orchestrator already stored the results in the database
+            # Just return the success result
+            logger.info(f"Analysis completed for article {article_id}")
+            return {
+                "success": True,
+                "article_id": article_id,
+                "analysis_id": analysis_result.get("analysis_record_id"),
+                "processing_cost": analysis_result.get("costs", {}).get("total", 0.0)
+            }
 
     except Exception as e:
         logger.error(f"Sync analysis failed for article {article_id}: {str(e)}")
