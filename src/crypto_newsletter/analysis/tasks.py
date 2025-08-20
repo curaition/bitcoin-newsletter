@@ -188,20 +188,61 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
             import concurrent.futures
             import threading
 
-            # Run the async function in a separate thread with its own event loop
+            # Run the async function in a separate thread with proper cleanup
             def run_in_thread():
                 # Create a new event loop for this thread
                 new_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(new_loop)
                 try:
-                    return new_loop.run_until_complete(run_analysis())
+                    # Run the analysis
+                    result = new_loop.run_until_complete(run_analysis())
+
+                    # Wait for any pending tasks to complete
+                    pending_tasks = asyncio.all_tasks(new_loop)
+                    if pending_tasks:
+                        logger.debug(f"Waiting for {len(pending_tasks)} pending tasks to complete")
+                        new_loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+
+                    return result
+                except Exception as e:
+                    logger.error(f"Error in thread analysis: {str(e)}")
+                    raise
                 finally:
-                    new_loop.close()
+                    # Graceful shutdown of the event loop
+                    try:
+                        # Cancel any remaining tasks
+                        pending_tasks = asyncio.all_tasks(new_loop)
+                        for task in pending_tasks:
+                            task.cancel()
+
+                        # Wait a bit for cancellations to complete
+                        if pending_tasks:
+                            new_loop.run_until_complete(
+                                asyncio.gather(*pending_tasks, return_exceptions=True)
+                            )
+
+                        # Close the loop gracefully
+                        new_loop.call_soon_threadsafe(new_loop.stop)
+                        new_loop.close()
+                    except Exception as cleanup_error:
+                        logger.warning(f"Error during loop cleanup: {cleanup_error}")
+                        # Force close if graceful cleanup fails
+                        if not new_loop.is_closed():
+                            new_loop.close()
 
             # Execute in a thread to avoid event loop conflicts
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(run_in_thread)
-                analysis_result = future.result()
+                # Add timeout to prevent hanging (5 minutes should be enough)
+                try:
+                    analysis_result = future.result(timeout=300)
+                except concurrent.futures.TimeoutError:
+                    logger.error(f"Analysis timed out for article {article_id}")
+                    return {
+                        "success": False,
+                        "article_id": article_id,
+                        "error": "Analysis timed out after 5 minutes"
+                    }
 
             # Check if analysis was successful
             if not analysis_result.get("success", False):
