@@ -29,14 +29,14 @@ class NewsletterGenerationException(Exception):
 
 
 @celery_app.task(bind=True, max_retries=3, queue="batch_processing")
-async def batch_analyze_articles_async(
+def batch_analyze_articles_async(
     self, article_ids: list[int], batch_number: int, session_id: str
 ) -> dict[str, Any]:
     """
     Process a batch of articles for analysis using async approach.
 
-    This async task eliminates event loop conflicts by running the entire
-    batch processing pipeline in a single async context.
+    This task runs async operations inside a synchronous Celery task
+    to eliminate event loop conflicts while maintaining async benefits.
 
     Args:
         article_ids: List of article IDs to process
@@ -174,8 +174,8 @@ async def batch_analyze_articles_async(
                 "retries_exhausted": True,
             }
 
-    # Run the async batch processing
-    return await _process_batch_async()
+    # Run the async batch processing using asyncio.run()
+    return asyncio.run(_process_batch_async())
 
 
 @celery_app.task(bind=True, queue="batch_processing")
