@@ -16,6 +16,60 @@ from crypto_newsletter.shared.database.connection import get_sync_db_session
 logger = logging.getLogger(__name__)
 
 
+async def _run_analysis_subprocess(article_id: int) -> dict[str, Any]:
+    """
+    Run article analysis in a subprocess to completely isolate async operations.
+
+    This approach eliminates all event loop conflicts by running the analysis
+    in a separate Python process with its own event loop.
+    """
+    import subprocess
+    import json
+    import sys
+
+    try:
+        # Run analysis in separate Python process
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "crypto_newsletter.analysis.subprocess_runner",
+                str(article_id)
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        else:
+            logger.error(f"Subprocess failed for article {article_id}: {result.stderr}")
+            return {
+                "success": False,
+                "article_id": article_id,
+                "error": f"Subprocess failed: {result.stderr}",
+                "requires_manual_review": True,
+            }
+
+    except subprocess.TimeoutExpired:
+        logger.error(f"Analysis subprocess timed out for article {article_id}")
+        return {
+            "success": False,
+            "article_id": article_id,
+            "error": "Analysis timed out after 5 minutes",
+            "requires_manual_review": True,
+        }
+    except Exception as e:
+        logger.error(f"Subprocess execution failed for article {article_id}: {str(e)}")
+        return {
+            "success": False,
+            "article_id": article_id,
+            "error": f"Subprocess execution failed: {str(e)}",
+            "requires_manual_review": True,
+        }
+
+
 class BudgetExceededException(Exception):
     """Raised when batch processing exceeds budget limits."""
 
@@ -49,8 +103,6 @@ def batch_analyze_articles_async(
 
     async def _process_batch_async() -> dict[str, Any]:
         """Internal async function for batch processing."""
-        from crypto_newsletter.analysis.tasks import analyze_article_direct
-        from crypto_newsletter.analysis.dependencies import CostTracker
         from crypto_newsletter.shared.database.connection import get_db_session
 
         batch_start = datetime.utcnow()
@@ -60,11 +112,6 @@ def batch_analyze_articles_async(
 
         try:
             async with get_db_session() as db:
-                # Initialize cost tracker for this batch
-                cost_tracker = CostTracker(
-                    daily_budget=BatchProcessingConfig.MAX_TOTAL_BUDGET
-                )
-
                 # TODO: Update batch record status to PROCESSING (async version needed)
                 # TODO: Check budget constraint before processing (async version needed)
                 # For now, we'll focus on the core analysis functionality
@@ -81,12 +128,8 @@ def batch_analyze_articles_async(
                             f"Processing article {article_id} in batch {batch_number}"
                         )
 
-                        # Call direct async analysis function
-                        task_result = await analyze_article_direct(
-                            article_id=article_id,
-                            db=db,
-                            cost_tracker=cost_tracker
-                        )
+                        # Call analysis via subprocess to avoid event loop conflicts
+                        task_result = await _run_analysis_subprocess(article_id)
 
                         if task_result.get("success", False):
                             articles_processed += 1
