@@ -213,34 +213,32 @@ export function NewslettersPage() {
             {/* Filters */}
             <div className="flex gap-4">
               <div className="flex-1">
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as NewsletterStatus | 'all')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {NEWSLETTER_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as NewsletterStatus | 'all')}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="all">All Statuses</option>
+                  {NEWSLETTER_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex-1">
-                <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as NewsletterType | 'all')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {NEWSLETTER_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as NewsletterType | 'all')}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="all">All Types</option>
+                  {NEWSLETTER_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
