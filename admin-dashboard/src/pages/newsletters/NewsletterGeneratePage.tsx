@@ -12,17 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+// Checkbox component temporarily removed - using basic HTML checkbox
+// Select component temporarily removed - using basic HTML select
 import {
   ArrowLeft,
-  Calendar,
+
   FileText,
   Zap,
   Clock,
@@ -36,7 +30,7 @@ import type { NewsletterType } from '../../../../shared/types/api';
 import { NEWSLETTER_TYPE_OPTIONS } from '../../../../shared/types/api';
 
 export function NewsletterGeneratePage() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Temporarily unused
   const [selectedType, setSelectedType] = useState<NewsletterType>('DAILY');
   const [forceGeneration, setForceGeneration] = useState(false);
   const [generationResult, setGenerationResult] = useState<any>(null);
@@ -87,10 +81,10 @@ export function NewsletterGeneratePage() {
     }
   };
 
-  const getRecentCount = (type: NewsletterType) => {
-    if (!stats) return 0;
-    return type === 'DAILY' ? stats.newsletter_types.daily : stats.newsletter_types.weekly;
-  };
+  // const getRecentCount = (type: NewsletterType) => { // Temporarily unused
+  //   if (!stats) return 0;
+  //   return type === 'DAILY' ? stats.newsletter_types.daily : stats.newsletter_types.weekly;
+  // };
 
   if (generationResult) {
     return (
@@ -193,18 +187,17 @@ export function NewsletterGeneratePage() {
               {/* Newsletter Type Selection */}
               <div className="space-y-3">
                 <label className="text-sm font-medium">Newsletter Type</label>
-                <Select value={selectedType} onValueChange={(value) => setSelectedType(value as NewsletterType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NEWSLETTER_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value as NewsletterType)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  {NEWSLETTER_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <p className="text-sm text-muted-foreground">
                   {getTypeDescription(selectedType)}
                 </p>

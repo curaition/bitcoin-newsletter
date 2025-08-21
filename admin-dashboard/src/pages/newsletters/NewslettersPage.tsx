@@ -12,13 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+// Select component temporarily removed - using basic HTML select
 import {
   Table,
   TableBody,
@@ -37,7 +31,7 @@ import {
   RefreshCw,
   Plus,
   Star,
-  Clock
+
 } from 'lucide-react';
 import { useNewsletters } from '@/hooks/api/useNewsletters';
 import { formatDistanceToNow } from 'date-fns';

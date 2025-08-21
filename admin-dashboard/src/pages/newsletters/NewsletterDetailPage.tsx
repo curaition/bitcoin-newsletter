@@ -12,13 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+// Select component temporarily removed - using basic HTML select
 import {
   ArrowLeft,
   Calendar,
@@ -31,11 +25,10 @@ import {
   RefreshCw,
   Edit,
   Trash2,
-  Eye,
-  Download
+
 } from 'lucide-react';
 import { useNewsletter, useUpdateNewsletterStatus, useDeleteNewsletter } from '@/hooks/api/useNewsletters';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import type { NewsletterStatus } from '../../../../shared/types/api';
 import { NEWSLETTER_STATUS_OPTIONS } from '../../../../shared/types/api';
 

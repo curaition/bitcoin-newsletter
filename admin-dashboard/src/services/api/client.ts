@@ -357,27 +357,27 @@ export class AdminAPIClient {
   }
 
   // Placeholder methods for future implementation
-  async bulkNewsletterOperation(operation: any): Promise<any> {
+  async bulkNewsletterOperation(_operation: any): Promise<any> {
     throw new Error('Bulk newsletter operations not yet implemented');
   }
 
-  async searchNewsletters(params: any): Promise<any> {
+  async searchNewsletters(_params: any): Promise<any> {
     throw new Error('Newsletter search not yet implemented');
   }
 
-  async getNewsletterAnalytics(period: string): Promise<any> {
+  async getNewsletterAnalytics(_period: string): Promise<any> {
     throw new Error('Newsletter analytics not yet implemented');
   }
 
-  async exportNewsletter(id: number, format: string): Promise<any> {
+  async exportNewsletter(_id: number, _format: string): Promise<any> {
     throw new Error('Newsletter export not yet implemented');
   }
 
-  async validateNewsletter(id: number): Promise<any> {
+  async validateNewsletter(_id: number): Promise<any> {
     throw new Error('Newsletter validation not yet implemented');
   }
 
-  async getNewsletterPreview(id: number): Promise<any> {
+  async getNewsletterPreview(_id: number): Promise<any> {
     throw new Error('Newsletter preview not yet implemented');
   }
 

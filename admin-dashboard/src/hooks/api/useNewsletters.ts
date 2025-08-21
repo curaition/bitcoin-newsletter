@@ -6,13 +6,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
-  Newsletter,
   NewsletterListParams,
-  NewsletterListResponse,
   NewsletterGenerationRequest,
-  NewsletterGenerationResponse,
-  NewsletterUpdateRequest,
-  NewsletterStatsResponse,
   NewsletterStatus
 } from '../../../../shared/types/api';
 import { apiClient } from '@/services/api/client';
@@ -192,7 +187,7 @@ export function useNewsletterSearch(params: NewsletterSearchParams, options: { e
   return useQuery({
     queryKey: ['newsletter-search', params],
     queryFn: () => apiClient.searchNewsletters(params),
-    enabled: enabled && (params.query || Object.keys(params).length > 0),
+    enabled: Boolean(enabled && (params.query || Object.keys(params).length > 0)),
     staleTime: 30000, // 30 seconds
   });
 }
