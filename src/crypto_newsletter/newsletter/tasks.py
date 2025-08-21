@@ -15,6 +15,51 @@ from crypto_newsletter.shared.models import Newsletter
 logger = logging.getLogger(__name__)
 
 
+async def _convert_articles_for_agents(articles, db_session):
+    """Convert Article model instances to dictionary format for agent system."""
+    from crypto_newsletter.shared.models import ArticleAnalysis, Publisher
+    from sqlalchemy import select
+
+    articles_for_agents = []
+
+    for article in articles:
+        # Get analysis data for this article
+        analysis_query = select(ArticleAnalysis).where(
+            ArticleAnalysis.article_id == article.id
+        ).order_by(ArticleAnalysis.created_at.desc()).limit(1)
+
+        analysis_result = await db_session.execute(analysis_query)
+        analysis = analysis_result.scalar_one_or_none()
+
+        # Get publisher name
+        publisher_query = select(Publisher).where(Publisher.id == article.publisher_id)
+        publisher_result = await db_session.execute(publisher_query)
+        publisher = publisher_result.scalar_one_or_none()
+
+        # Convert to dictionary format expected by agents
+        article_dict = {
+            "id": article.id,
+            "title": article.title,
+            "body": article.body,
+            "published_on": article.published_on.isoformat() if article.published_on else None,
+            "publisher": publisher.name if publisher else "Unknown",
+            "url": article.url,
+            # Analysis fields with defaults
+            "weak_signals": analysis.weak_signals if analysis else [],
+            "pattern_anomalies": analysis.pattern_anomalies if analysis else [],
+            "adjacent_connections": analysis.adjacent_connections if analysis else [],
+            "signal_strength": float(analysis.signal_strength) if analysis and analysis.signal_strength else 0.0,
+            "uniqueness_score": float(analysis.uniqueness_score) if analysis and analysis.uniqueness_score else 0.0,
+            "analysis_confidence": float(analysis.analysis_confidence) if analysis and analysis.analysis_confidence else 0.0,
+            "narrative_gaps": analysis.narrative_gaps if analysis else [],
+            "edge_indicators": analysis.edge_indicators if analysis else [],
+        }
+
+        articles_for_agents.append(article_dict)
+
+    return articles_for_agents
+
+
 class NewsletterGenerationException(Exception):
     """Raised when newsletter generation fails."""
 
@@ -108,12 +153,15 @@ def generate_daily_newsletter_task(
                         "generation_metadata": generation_metadata,
                     }
 
-                # Step 4: Generate newsletter using orchestrator
+                # Step 4: Convert articles to dictionary format for agent system
+                articles_for_agents = await _convert_articles_for_agents(daily_articles, db)
+
+                # Step 5: Generate newsletter using orchestrator
                 logger.info("Starting daily newsletter generation with agent system")
 
                 orchestrator = NewsletterOrchestrator()
                 generation_result = await orchestrator.generate_newsletter(
-                    articles=daily_articles, newsletter_type="DAILY"
+                    articles=articles_for_agents, newsletter_type="DAILY"
                 )
 
                 if not generation_result["success"]:
