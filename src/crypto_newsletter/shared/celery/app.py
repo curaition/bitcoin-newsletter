@@ -122,6 +122,35 @@ def create_celery_app() -> Celery:
                 "schedule": crontab(minute=0, hour=2),  # Daily at 2 AM UTC
                 "options": {"priority": 5},
             },
+            # Newsletter generation tasks
+            "generate-daily-newsletter": {
+                "task": "crypto_newsletter.newsletter.tasks.generate_daily_newsletter",
+                "schedule": crontab(minute=0, hour=6),  # Daily at 6 AM UTC
+                "options": {
+                    "priority": 7,
+                    "retry_policy": {
+                        "max_retries": 2,
+                        "interval_start": 1800,  # 30 minutes
+                        "interval_step": 1800,  # 30 minute increments
+                        "interval_max": 3600,  # 1 hour max
+                    },
+                },
+            },
+            "generate-weekly-newsletter": {
+                "task": "crypto_newsletter.newsletter.tasks.generate_weekly_newsletter",
+                "schedule": crontab(
+                    minute=0, hour=8, day_of_week=1
+                ),  # Monday at 8 AM UTC
+                "options": {
+                    "priority": 6,
+                    "retry_policy": {
+                        "max_retries": 2,
+                        "interval_start": 1800,  # 30 minutes
+                        "interval_step": 1800,  # 30 minute increments
+                        "interval_max": 3600,  # 1 hour max
+                    },
+                },
+            },
             # Note: analyze-recent-articles task removed - batch processing is now handled
             # by the dedicated batch processing system via manual/API triggers
         },
@@ -146,8 +175,9 @@ def create_celery_app() -> Celery:
     celery_app.autodiscover_tasks(
         [
             "crypto_newsletter.core.scheduling",
-            # "crypto_newsletter.analysis",  # Temporarily disabled - requires API keys
+            "crypto_newsletter.analysis",
             "crypto_newsletter.newsletter.batch",
+            "crypto_newsletter.newsletter",  # Newsletter generation tasks
         ]
     )
 

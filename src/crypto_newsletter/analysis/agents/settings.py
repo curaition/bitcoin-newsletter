@@ -2,14 +2,19 @@
 
 from typing import Optional
 
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AnalysisSettings(BaseSettings):
     """Settings for analysis agents."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=[".env.development", ".env"],
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
     # LLM Configuration
     content_analysis_model: str = Field(

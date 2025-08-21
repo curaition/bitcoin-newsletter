@@ -8,6 +8,8 @@ from crypto_newsletter.shared.models import (
     Article,
     ArticleCategory,
     Category,
+    Newsletter,
+    NewsletterArticle,
     Publisher,
 )
 from loguru import logger
@@ -76,6 +78,12 @@ class ArticleRepository:
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_article_by_guid(self, guid: str) -> Optional[Article]:
+        """Get article by GUID."""
+        query = select(Article).where(Article.guid == guid)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
     async def get_articles_by_publisher(
         self, publisher_id: int, limit: int = 50
     ) -> list[Article]:
@@ -91,6 +99,45 @@ class ArticleRepository:
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def get_articles_with_analysis_since(
+        self, since_date: datetime, min_signal_strength: float = 0.0, limit: int = 100
+    ) -> list[Article]:
+        """
+        Get articles with completed analysis since a specific date.
+
+        Args:
+            since_date: Get articles analyzed since this datetime
+            min_signal_strength: Minimum signal strength filter
+            limit: Maximum number of articles to return
+
+        Returns:
+            List of Article instances with analysis
+        """
+        from crypto_newsletter.shared.models import ArticleAnalysis
+
+        query = (
+            select(Article)
+            .join(ArticleAnalysis, Article.id == ArticleAnalysis.article_id)
+            .where(
+                and_(
+                    ArticleAnalysis.created_at >= since_date,
+                    ArticleAnalysis.validation_status == "COMPLETED",
+                    ArticleAnalysis.signal_strength >= min_signal_strength,
+                    Article.status == "ACTIVE",
+                )
+            )
+            .order_by(desc(ArticleAnalysis.created_at))
+            .limit(limit)
+        )
+
+        result = await self.db.execute(query)
+        articles = result.scalars().all()
+
+        logger.debug(
+            f"Retrieved {len(articles)} articles with analysis since {since_date}"
+        )
+        return list(articles)
 
     async def get_articles_by_category(
         self, category_name: str, limit: int = 50
@@ -161,54 +208,6 @@ class ArticleRepository:
             "top_categories": top_categories,
             "last_updated": datetime.now(UTC).isoformat(),
         }
-
-    async def get_recent_articles(
-        self,
-        limit: int = 10,
-        offset: int = 0,
-        publisher_id: Optional[int] = None,
-        hours_back: Optional[int] = None,
-    ) -> list[dict[str, Any]]:
-        """Get recent articles with optional filtering."""
-        try:
-            query = select(Article).where(Article.status == "ACTIVE")
-
-            # Apply filters
-            if publisher_id:
-                query = query.where(Article.publisher_id == publisher_id)
-
-            if hours_back:
-                cutoff = datetime.now(UTC) - timedelta(hours=hours_back)
-                query = query.where(Article.published_on >= cutoff)
-
-            # Apply pagination and ordering
-            query = (
-                query.order_by(Article.published_on.desc()).offset(offset).limit(limit)
-            )
-
-            result = await self.db.execute(query)
-            articles = result.scalars().all()
-
-            return [
-                {
-                    "id": article.id,
-                    "external_id": article.external_id,
-                    "title": article.title,
-                    "subtitle": article.subtitle,
-                    "url": article.url,
-                    "published_on": article.published_on.isoformat()
-                    if article.published_on
-                    else None,
-                    "publisher_id": article.publisher_id,
-                    "language": article.language,
-                    "status": article.status,
-                }
-                for article in articles
-            ]
-
-        except Exception as e:
-            logger.error(f"Failed to get recent articles: {e}")
-            raise
 
     async def get_articles_with_filters(
         self,
@@ -583,3 +582,191 @@ async def run_pipeline_with_monitoring() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Pipeline execution failed: {e}")
         return {"status": "failed", "reason": str(e), "health": health}
+
+
+class NewsletterRepository:
+    """Repository for newsletter-related database operations."""
+
+    def __init__(self, db_session: AsyncSession) -> None:
+        """Initialize repository with database session."""
+        self.db = db_session
+
+    async def get_all_newsletters(
+        self,
+        status: Optional[str] = None,
+        limit: int = 50,
+        include_articles: bool = False,
+    ) -> list[Newsletter]:
+        """Get all newsletters with optional filtering."""
+        query = (
+            select(Newsletter).order_by(desc(Newsletter.generation_date)).limit(limit)
+        )
+
+        if status:
+            query = query.where(Newsletter.status == status)
+
+        if include_articles:
+            query = query.options(
+                selectinload(Newsletter.newsletter_articles).selectinload(
+                    NewsletterArticle.article
+                )
+            )
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_newsletter_by_id(
+        self, newsletter_id: int, include_articles: bool = False
+    ) -> Optional[Newsletter]:
+        """Get newsletter by ID."""
+        query = select(Newsletter).where(Newsletter.id == newsletter_id)
+
+        if include_articles:
+            query = query.options(
+                selectinload(Newsletter.newsletter_articles).selectinload(
+                    NewsletterArticle.article
+                )
+            )
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_newsletters_by_status(
+        self, status: str, limit: int = 20
+    ) -> list[Newsletter]:
+        """Get newsletters by status."""
+        query = (
+            select(Newsletter)
+            .where(Newsletter.status == status)
+            .order_by(desc(Newsletter.generation_date))
+            .limit(limit)
+        )
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_published_newsletters(self, limit: int = 20) -> list[Newsletter]:
+        """Get published newsletters."""
+        return await self.get_newsletters_by_status("PUBLISHED", limit)
+
+    async def get_draft_newsletters(self, limit: int = 20) -> list[Newsletter]:
+        """Get draft newsletters."""
+        return await self.get_newsletters_by_status("DRAFT", limit)
+
+    async def get_newsletters_with_filters(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+        newsletter_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> list[Newsletter]:
+        """Get newsletters with comprehensive filtering."""
+        from datetime import datetime
+
+        query = select(Newsletter).order_by(desc(Newsletter.generation_date))
+
+        # Apply filters
+        if status:
+            query = query.where(Newsletter.status == status)
+
+        if newsletter_type:
+            # Filter by newsletter type from generation_metadata
+            query = query.where(
+                Newsletter.generation_metadata.op("->")("newsletter_type").astext
+                == newsletter_type
+            )
+
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00")).date()
+            query = query.where(Newsletter.generation_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).date()
+            query = query.where(Newsletter.generation_date <= end_dt)
+
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def count_newsletters_with_filters(
+        self,
+        status: Optional[str] = None,
+        newsletter_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> int:
+        """Count newsletters matching filters."""
+        from datetime import datetime
+
+        query = select(func.count(Newsletter.id))
+
+        # Apply same filters as get_newsletters_with_filters
+        if status:
+            query = query.where(Newsletter.status == status)
+
+        if newsletter_type:
+            query = query.where(
+                Newsletter.generation_metadata.op("->")("newsletter_type").astext
+                == newsletter_type
+            )
+
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00")).date()
+            query = query.where(Newsletter.generation_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).date()
+            query = query.where(Newsletter.generation_date <= end_dt)
+
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
+    async def update_newsletter(
+        self,
+        newsletter_id: int,
+        status: Optional[str] = None,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        summary: Optional[str] = None,
+    ) -> Optional[Newsletter]:
+        """Update newsletter fields."""
+        # Get existing newsletter
+        newsletter = await self.get_newsletter_by_id(newsletter_id)
+        if not newsletter:
+            return None
+
+        # Update fields if provided
+        if status is not None:
+            newsletter.status = status
+            if status == "PUBLISHED" and not newsletter.published_at:
+                newsletter.published_at = datetime.now(UTC)
+
+        if title is not None:
+            newsletter.title = title
+
+        if content is not None:
+            newsletter.content = content
+
+        if summary is not None:
+            newsletter.summary = summary
+
+        # Commit changes
+        await self.db.commit()
+        await self.db.refresh(newsletter)
+
+        return newsletter
+
+    async def delete_newsletter(self, newsletter_id: int) -> bool:
+        """Delete newsletter by ID."""
+        newsletter = await self.get_newsletter_by_id(newsletter_id)
+        if not newsletter:
+            return False
+
+        await self.db.delete(newsletter)
+        await self.db.commit()
+
+        return True

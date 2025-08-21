@@ -8,6 +8,8 @@ from .models import (
     BatchProcessingRecord,
     BatchProcessingSession,
     Category,
+    Newsletter,
+    NewsletterArticle,
     Publisher,
 )
 
@@ -21,4 +23,6 @@ __all__ = [
     "ArticleAnalysis",
     "BatchProcessingSession",
     "BatchProcessingRecord",
+    "Newsletter",
+    "NewsletterArticle",
 ]

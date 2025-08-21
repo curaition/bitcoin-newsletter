@@ -1,18 +1,18 @@
 """Celery tasks for scheduled operations."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any, Optional
 
 from celery import Task
-from loguru import logger
-
-from crypto_newsletter.core.ingestion.pipeline import ArticleIngestionPipeline
 from crypto_newsletter.core.ingestion import pipeline_health_check
+from crypto_newsletter.core.ingestion.pipeline import ArticleIngestionPipeline
 from crypto_newsletter.core.storage.repository import ArticleRepository
+from crypto_newsletter.newsletter.monitoring import get_newsletter_health_status
 from crypto_newsletter.shared.celery.app import celery_app
 from crypto_newsletter.shared.celery.health import check_celery_health
 from crypto_newsletter.shared.database.connection import get_db_session
+from loguru import logger
 
 
 class AsyncTask(Task):
@@ -39,7 +39,7 @@ def ingest_articles(
     limit: Optional[int] = 50,
     hours_back: int = 12,
     categories: Optional[list] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Scheduled task to ingest articles from CoinDesk API.
 
@@ -51,8 +51,9 @@ def ingest_articles(
     Returns:
         Dict with ingestion results and metrics
     """
+
     async def _run_ingestion():
-        task_start = datetime.now(timezone.utc)
+        task_start = datetime.now(UTC)
 
         try:
             logger.info(
@@ -69,9 +70,9 @@ def ingest_articles(
             )
 
             # Calculate processing time
-            processing_time = (datetime.now(timezone.utc) - task_start).total_seconds()
+            processing_time = (datetime.now(UTC) - task_start).total_seconds()
             results["processing_time_seconds"] = processing_time
-            results["task_completed_at"] = datetime.now(timezone.utc).isoformat()
+            results["task_completed_at"] = datetime.now(UTC).isoformat()
 
             logger.info(
                 f"Scheduled ingestion completed successfully - "
@@ -86,7 +87,7 @@ def ingest_articles(
 
             # Retry logic with exponential backoff
             if self.request.retries < self.max_retries:
-                retry_delay = min(300 * (2 ** self.request.retries), 1800)  # Max 30 min
+                retry_delay = min(300 * (2**self.request.retries), 1800)  # Max 30 min
                 logger.warning(
                     f"Retrying ingestion in {retry_delay} seconds "
                     f"(attempt {self.request.retries + 1}/{self.max_retries})"
@@ -98,8 +99,10 @@ def ingest_articles(
             return {
                 "success": False,
                 "error": str(exc),
-                "task_completed_at": datetime.now(timezone.utc).isoformat(),
-                "processing_time_seconds": (datetime.now(timezone.utc) - task_start).total_seconds(),
+                "task_completed_at": datetime.now(UTC).isoformat(),
+                "processing_time_seconds": (
+                    datetime.now(UTC) - task_start
+                ).total_seconds(),
             }
 
     return asyncio.run(_run_ingestion())
@@ -110,13 +113,14 @@ def ingest_articles(
     name="crypto_newsletter.core.scheduling.tasks.health_check",
     max_retries=1,
 )
-def health_check(self) -> Dict[str, Any]:
+def health_check(self) -> dict[str, Any]:
     """
     Scheduled health check task including Redis connection monitoring.
 
     Returns:
         Dict with comprehensive health check results
     """
+
     async def _run_health_check():
         try:
             logger.debug("Running scheduled health check")
@@ -127,19 +131,28 @@ def health_check(self) -> Dict[str, Any]:
             # Check Redis/Celery connection health
             celery_status = check_celery_health(celery_app)
 
+            # Check newsletter system health
+            newsletter_status = await get_newsletter_health_status()
+
             # Combine results
             overall_status = "healthy"
-            if (pipeline_status["status"] != "healthy" or
-                celery_status["overall_status"] != "healthy"):
+            if (
+                pipeline_status["status"] != "healthy"
+                or celery_status["overall_status"] != "healthy"
+                or newsletter_status["overall_status"] == "unhealthy"
+            ):
                 overall_status = "unhealthy"
+            elif newsletter_status["overall_status"] == "warning":
+                overall_status = "warning"
 
             health_status = {
                 "status": overall_status,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "checks": {
                     "pipeline": pipeline_status,
                     "celery_redis": celery_status,
-                }
+                    "newsletter_system": newsletter_status,
+                },
             }
 
             if overall_status != "healthy":
@@ -153,7 +166,7 @@ def health_check(self) -> Dict[str, Any]:
             logger.error(f"Health check failed: {exc}")
             return {
                 "status": "unhealthy",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "error": str(exc),
             }
 
@@ -169,34 +182,36 @@ def cleanup_old_articles(
     self,
     days_to_keep: int = 30,
     dry_run: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Scheduled task to clean up old articles.
-    
+
     Args:
         days_to_keep: Number of days of articles to keep
         dry_run: If True, only count articles that would be deleted
-    
+
     Returns:
         Dict with cleanup results
     """
+
     async def _run_cleanup():
         try:
-            logger.info(f"Starting article cleanup - days_to_keep: {days_to_keep}, dry_run: {dry_run}")
+            logger.info(
+                f"Starting article cleanup - days_to_keep: {days_to_keep}, dry_run: {dry_run}"
+            )
 
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days_to_keep)
 
             async with get_db_session() as db:
                 repo = ArticleRepository(db)
 
                 if dry_run:
                     # Count articles that would be deleted
-                    from sqlalchemy import select, func
                     from crypto_newsletter.shared.models import Article
+                    from sqlalchemy import func, select
 
                     query = select(func.count(Article.id)).where(
-                        Article.published_on < cutoff_date,
-                        Article.status == "ACTIVE"
+                        Article.published_on < cutoff_date, Article.status == "ACTIVE"
                     )
                     result = await db.execute(query)
                     count = result.scalar() or 0
@@ -211,22 +226,25 @@ def cleanup_old_articles(
 
                 else:
                     # Actually delete old articles (mark as DELETED)
-                    from sqlalchemy import update
                     from crypto_newsletter.shared.models import Article
+                    from sqlalchemy import update
 
-                    query = update(Article).where(
-                        Article.published_on < cutoff_date,
-                        Article.status == "ACTIVE"
-                    ).values(
-                        status="DELETED",
-                        updated_on=datetime.now(timezone.utc)
+                    query = (
+                        update(Article)
+                        .where(
+                            Article.published_on < cutoff_date,
+                            Article.status == "ACTIVE",
+                        )
+                        .values(status="DELETED", updated_on=datetime.now(UTC))
                     )
 
                     result = await db.execute(query)
                     await db.commit()
 
                     deleted_count = result.rowcount
-                    logger.info(f"Cleanup completed: {deleted_count} articles marked as deleted")
+                    logger.info(
+                        f"Cleanup completed: {deleted_count} articles marked as deleted"
+                    )
 
                     return {
                         "success": True,
@@ -246,7 +264,9 @@ def cleanup_old_articles(
             return {
                 "success": False,
                 "error": str(exc),
-                "cutoff_date": cutoff_date.isoformat() if 'cutoff_date' in locals() else None,
+                "cutoff_date": cutoff_date.isoformat()
+                if "cutoff_date" in locals()
+                else None,
             }
 
     return asyncio.run(_run_cleanup())
@@ -260,7 +280,7 @@ def manual_ingest(
     limit: Optional[int] = None,
     hours_back: int = 24,
     categories: Optional[list] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manual ingestion task (can be triggered via API or CLI).
 
@@ -272,6 +292,7 @@ def manual_ingest(
     Returns:
         Dict with ingestion results
     """
+
     async def _run_ingestion():
         pipeline = ArticleIngestionPipeline()
         return await pipeline.run_full_ingestion(
@@ -284,10 +305,10 @@ def manual_ingest(
 
 
 # Task monitoring utilities
-def get_task_status(task_id: str) -> Dict[str, Any]:
+def get_task_status(task_id: str) -> dict[str, Any]:
     """Get status of a specific task."""
     result = celery_app.AsyncResult(task_id)
-    
+
     return {
         "task_id": task_id,
         "status": result.status,
@@ -297,7 +318,7 @@ def get_task_status(task_id: str) -> Dict[str, Any]:
     }
 
 
-def get_active_tasks() -> Dict[str, Any]:
+def get_active_tasks() -> dict[str, Any]:
     """Get information about currently active tasks."""
     inspect = celery_app.control.inspect()
 

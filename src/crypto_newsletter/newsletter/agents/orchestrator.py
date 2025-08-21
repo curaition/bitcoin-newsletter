@@ -2,11 +2,11 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
+from .newsletter_writer import newsletter_writer_agent
 from .story_selection import story_selection_agent
 from .synthesis import synthesis_agent
-from .newsletter_writer import newsletter_writer_agent
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,8 @@ class NewsletterOrchestrator:
         self.writer_agent = newsletter_writer_agent
 
     async def generate_daily_newsletter(
-        self,
-        articles: List[Dict[str, Any]],
-        newsletter_type: str = "DAILY"
-    ) -> Dict[str, Any]:
+        self, articles: list[dict[str, Any]], newsletter_type: str = "DAILY"
+    ) -> dict[str, Any]:
         """Complete daily newsletter generation workflow."""
 
         try:
@@ -37,7 +35,9 @@ class NewsletterOrchestrator:
                 raise ValueError("Not enough quality stories selected")
 
             # Step 2: Synthesis
-            logger.info(f"Synthesizing {len(selection_result.data.selected_stories)} selected stories")
+            logger.info(
+                f"Synthesizing {len(selection_result.data.selected_stories)} selected stories"
+            )
 
             synthesis_input = self.format_selection_for_synthesis(
                 selection_result.data, articles
@@ -53,11 +53,13 @@ class NewsletterOrchestrator:
             newsletter_result = await self.writer_agent.run(writing_input)
 
             # Calculate costs and metadata
-            total_cost = self.calculate_generation_cost([
-                selection_result.usage(),
-                synthesis_result.usage(),
-                newsletter_result.usage()
-            ])
+            total_cost = self.calculate_generation_cost(
+                [
+                    selection_result.usage(),
+                    synthesis_result.usage(),
+                    newsletter_result.usage(),
+                ]
+            )
 
             return {
                 "success": True,
@@ -68,19 +70,15 @@ class NewsletterOrchestrator:
                     "articles_reviewed": len(articles),
                     "stories_selected": len(selection_result.data.selected_stories),
                     "generation_cost": total_cost,
-                    "quality_score": newsletter_result.data.editorial_quality_score
-                }
+                    "quality_score": newsletter_result.data.editorial_quality_score,
+                },
             }
 
         except Exception as e:
             logger.error(f"Newsletter generation failed: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e),
-                "requires_manual_review": True
-            }
+            return {"success": False, "error": str(e), "requires_manual_review": True}
 
-    def format_articles_for_selection(self, articles: List[Dict[str, Any]]) -> str:
+    def format_articles_for_selection(self, articles: list[dict[str, Any]]) -> str:
         """Format analyzed articles for story selection agent."""
 
         formatted_articles = []
@@ -123,15 +121,16 @@ ARTICLES FOR REVIEW:
 Focus on stories with strong signals, unique insights, and cross-domain implications that mainstream crypto media typically misses.
 """
 
-    def format_selection_for_synthesis(self, selection, full_articles: List[Dict[str, Any]]) -> str:
+    def format_selection_for_synthesis(
+        self, selection, full_articles: list[dict[str, Any]]
+    ) -> str:
         """Format story selection results for synthesis agent."""
 
         selected_article_details = []
         for story in selection.selected_stories:
             # Get full article details
             full_article = next(
-                (a for a in full_articles if a['id'] == story.article_id),
-                None
+                (a for a in full_articles if a["id"] == story.article_id), None
             )
 
             if full_article:
@@ -200,31 +199,149 @@ Selection Themes: {', '.join(selection.selection_themes)}
 Please create compelling newsletter content that transforms this analysis into actionable insights for readers.
 """
 
-    def format_signals_list(self, signals: List[Dict[str, Any]]) -> str:
+    def format_signals_list(self, signals: list[dict[str, Any]]) -> str:
         """Format signals list for display."""
         if not signals:
             return "None identified"
-        return "\n".join(f"- {signal.get('signal', 'Unknown')}: {signal.get('description', 'No description')}" for signal in signals[:3])
+        return "\n".join(
+            f"- {signal.get('signal', 'Unknown')}: {signal.get('description', 'No description')}"
+            for signal in signals[:3]
+        )
 
-    def format_patterns_list(self, patterns: List[Dict[str, Any]]) -> str:
+    def format_patterns_list(self, patterns: list[dict[str, Any]]) -> str:
         """Format patterns list for display."""
         if not patterns:
             return "None identified"
-        return "\n".join(f"- {pattern.get('pattern', 'Unknown')}: {pattern.get('description', 'No description')}" for pattern in patterns[:3])
+        return "\n".join(
+            f"- {pattern.get('pattern', 'Unknown')}: {pattern.get('description', 'No description')}"
+            for pattern in patterns[:3]
+        )
 
-    def format_connections_list(self, connections: List[Dict[str, Any]]) -> str:
+    def format_connections_list(self, connections: list[dict[str, Any]]) -> str:
         """Format connections list for display."""
         if not connections:
             return "None identified"
-        return "\n".join(f"- {conn.get('connection', 'Unknown')}: {conn.get('description', 'No description')}" for conn in connections[:3])
+        return "\n".join(
+            f"- {conn.get('connection', 'Unknown')}: {conn.get('description', 'No description')}"
+            for conn in connections[:3]
+        )
 
-    def calculate_generation_cost(self, usages: List[Any]) -> float:
+    def calculate_generation_cost(self, usages: list[Any]) -> float:
         """Calculate total cost from agent usages."""
         total_cost = 0.0
         for usage in usages:
-            if hasattr(usage, 'total_cost') and usage.total_cost:
+            if hasattr(usage, "total_cost") and usage.total_cost:
                 total_cost += usage.total_cost
         return total_cost
+
+    async def generate_weekly_newsletter(
+        self, daily_newsletters: list[Any]
+    ) -> dict[str, Any]:
+        """
+        Generate weekly newsletter from daily newsletters.
+
+        Args:
+            daily_newsletters: List of daily Newsletter instances
+
+        Returns:
+            Dict with generation results
+        """
+        try:
+            logger.info(
+                f"Starting weekly newsletter generation from {len(daily_newsletters)} daily newsletters"
+            )
+
+            # Extract content from daily newsletters for synthesis
+            daily_contents = []
+            for newsletter in daily_newsletters:
+                daily_contents.append(
+                    {
+                        "id": newsletter.id,
+                        "title": newsletter.title,
+                        "content": newsletter.content,
+                        "summary": newsletter.summary,
+                        "generation_date": newsletter.generation_date,
+                        "quality_score": newsletter.quality_score,
+                    }
+                )
+
+            # Create weekly story selection (aggregate from daily newsletters)
+            weekly_selection = StorySelection(
+                selection_date=datetime.now(),
+                total_articles_reviewed=sum(
+                    n.generation_metadata.get("articles_processed", 0)
+                    for n in daily_newsletters
+                    if n.generation_metadata
+                ),
+                selected_stories=[],  # Weekly doesn't select individual stories
+                rejected_highlights=[],
+                selection_themes=[
+                    "Weekly Synthesis",
+                    "Market Trends",
+                    "Pattern Analysis",
+                ],
+                coverage_gaps=[],
+            )
+
+            # Generate weekly synthesis from daily newsletters
+            synthesis_agent = SynthesisAgent()
+            weekly_synthesis = await synthesis_agent.run(
+                f"Synthesize weekly insights from {len(daily_newsletters)} daily newsletters:\n\n"
+                + "\n\n".join(
+                    [
+                        f"Day {i+1} ({content['generation_date']}):\n{content['summary']}"
+                        for i, content in enumerate(daily_contents)
+                    ]
+                )
+            )
+
+            # Generate weekly newsletter content
+            writer_agent = NewsletterWriterAgent()
+            weekly_content = await writer_agent.run(
+                f"Create weekly newsletter from daily newsletter synthesis:\n\n"
+                f"Weekly Synthesis: {weekly_synthesis.data.market_narrative}\n\n"
+                f"Key Themes: {', '.join(weekly_synthesis.data.primary_themes)}\n\n"
+                f"Daily Newsletter Summaries:\n"
+                + "\n".join(
+                    [
+                        f"• {content['title']}: {content['summary']}"
+                        for content in daily_contents
+                    ]
+                )
+            )
+
+            # Calculate costs
+            generation_cost = self.calculate_generation_cost(
+                [weekly_synthesis.usage, weekly_content.usage]
+            )
+
+            logger.info(
+                f"Weekly newsletter generation completed - Cost: ${generation_cost:.4f}"
+            )
+
+            return {
+                "success": True,
+                "newsletter_content": weekly_content.data,
+                "story_selection": weekly_selection,
+                "synthesis": weekly_synthesis.data,
+                "generation_metadata": {
+                    "generation_cost": generation_cost,
+                    "daily_newsletters_processed": len(daily_newsletters),
+                    "synthesis_confidence": weekly_synthesis.data.synthesis_confidence,
+                    "agent_versions": {"synthesis": "1.0", "writer": "1.0"},
+                },
+            }
+
+        except Exception as e:
+            logger.error(f"Weekly newsletter generation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "generation_metadata": {
+                    "generation_cost": 0.0,
+                    "daily_newsletters_processed": len(daily_newsletters),
+                },
+            }
 
 
 # Global orchestrator instance

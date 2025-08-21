@@ -14,6 +14,13 @@ import type {
   ManualIngestRequest,
   IngestionResult,
   TaskStatusResponse,
+  Newsletter,
+  NewsletterListParams,
+  NewsletterListResponse,
+  NewsletterGenerationRequest,
+  NewsletterGenerationResponse,
+  NewsletterUpdateRequest,
+  NewsletterStatsResponse,
 } from '../../../../shared/types/api';
 
 import {
@@ -231,6 +238,147 @@ export class AdminAPIClient {
     }
 
     return result.data!;
+  }
+
+  // ============================================================================
+  // Newsletter Methods
+  // ============================================================================
+
+  async getNewsletters(params: NewsletterListParams = {}): Promise<NewsletterListResponse> {
+    const url = buildApiUrl(this.baseUrl, '/api/newsletters', params);
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, { headers });
+    const result = await processApiResponse<NewsletterListResponse>(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async getNewsletter(id: number): Promise<Newsletter> {
+    const url = buildApiUrl(this.baseUrl, `/api/newsletters/${id}`);
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, { headers });
+    const result = await processApiResponse<Newsletter>(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async generateNewsletter(request: NewsletterGenerationRequest): Promise<NewsletterGenerationResponse> {
+    const url = buildApiUrl(this.baseUrl, '/admin/newsletters/generate');
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(request),
+    });
+
+    const result = await processApiResponse<NewsletterGenerationResponse>(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async updateNewsletterStatus(id: number, updateData: NewsletterUpdateRequest): Promise<any> {
+    const url = buildApiUrl(this.baseUrl, `/admin/newsletters/${id}/status`);
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(updateData),
+    });
+
+    const result = await processApiResponse(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async deleteNewsletter(id: number): Promise<any> {
+    const url = buildApiUrl(this.baseUrl, `/admin/newsletters/${id}`);
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+    });
+
+    const result = await processApiResponse(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async getNewsletterStats(): Promise<NewsletterStatsResponse> {
+    const url = buildApiUrl(this.baseUrl, '/admin/newsletters/stats');
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, { headers });
+    const result = await processApiResponse<NewsletterStatsResponse>(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  async getNewsletterHealth(): Promise<any> {
+    const url = buildApiUrl(this.baseUrl, '/health/newsletter');
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, { headers });
+    const result = await processApiResponse(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
+  // Placeholder methods for future implementation
+  async bulkNewsletterOperation(operation: any): Promise<any> {
+    throw new Error('Bulk newsletter operations not yet implemented');
+  }
+
+  async searchNewsletters(params: any): Promise<any> {
+    throw new Error('Newsletter search not yet implemented');
+  }
+
+  async getNewsletterAnalytics(period: string): Promise<any> {
+    throw new Error('Newsletter analytics not yet implemented');
+  }
+
+  async exportNewsletter(id: number, format: string): Promise<any> {
+    throw new Error('Newsletter export not yet implemented');
+  }
+
+  async validateNewsletter(id: number): Promise<any> {
+    throw new Error('Newsletter validation not yet implemented');
+  }
+
+  async getNewsletterPreview(id: number): Promise<any> {
+    throw new Error('Newsletter preview not yet implemented');
   }
 
   // ============================================================================

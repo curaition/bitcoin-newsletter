@@ -1,6 +1,6 @@
 /**
  * Shared API Types for Bitcoin Newsletter
- * 
+ *
  * These types match the backend Pydantic models and database schemas.
  * Keep in sync with backend models in src/crypto_newsletter/shared/models/
  */
@@ -16,6 +16,8 @@ export interface TimestampMixin {
 
 export type ArticleStatus = 'ACTIVE' | 'INACTIVE' | 'DELETED';
 export type ArticleSentiment = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+export type NewsletterStatus = 'DRAFT' | 'REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+export type NewsletterType = 'DAILY' | 'WEEKLY';
 
 // ============================================================================
 // Core Domain Models
@@ -51,11 +53,11 @@ export interface Article extends TimestampMixin {
   keywords: string | null;
   sentiment: ArticleSentiment | null;
   status: ArticleStatus;
-  
+
   // Foreign key relationships
   publisher_id: number | null;
   source_id: number | null;
-  
+
   // Populated relationships (when included)
   publisher?: Publisher;
   article_categories?: ArticleCategory[];
@@ -65,10 +67,23 @@ export interface ArticleCategory extends TimestampMixin {
   id: number;
   article_id: number;
   category_id: number;
-  
+
   // Populated relationships
   article?: Article;
   category?: Category;
+}
+
+export interface Newsletter extends TimestampMixin {
+  id: number;
+  title: string;
+  content: string;
+  summary: string | null;
+  generation_date: string; // ISO 8601 date
+  status: NewsletterStatus;
+  quality_score: number | null;
+  agent_version: string | null;
+  generation_metadata: Record<string, any> | null;
+  published_at: string | null; // ISO 8601 datetime
 }
 
 // ============================================================================
@@ -267,4 +282,87 @@ export const ARTICLE_SENTIMENT_OPTIONS: SelectOption[] = [
   { value: 'POSITIVE', label: 'Positive' },
   { value: 'NEGATIVE', label: 'Negative' },
   { value: 'NEUTRAL', label: 'Neutral' },
+];
+
+// ============================================================================
+// Newsletter API Types
+// ============================================================================
+
+export interface NewsletterListParams extends PaginationParams {
+  status?: NewsletterStatus;
+  newsletter_type?: NewsletterType;
+  start_date?: string; // ISO 8601 date
+  end_date?: string;   // ISO 8601 date
+  orderBy?: 'created_at' | 'generation_date' | 'title';
+  order?: 'asc' | 'desc';
+}
+
+export interface NewsletterListResponse {
+  newsletters: Newsletter[];
+  total_count: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
+
+export interface NewsletterGenerationRequest {
+  newsletter_type: NewsletterType;
+  force_generation?: boolean;
+}
+
+export interface NewsletterGenerationResponse {
+  success: boolean;
+  task_id: string;
+  newsletter_type: NewsletterType;
+  force_generation: boolean;
+  status: string;
+  timestamp: string;
+}
+
+export interface NewsletterUpdateRequest {
+  status?: NewsletterStatus;
+  title?: string;
+  content?: string;
+  summary?: string;
+}
+
+export interface NewsletterStatsResponse {
+  period: string;
+  total_newsletters: number;
+  newsletter_types: {
+    daily: number;
+    weekly: number;
+  };
+  status_breakdown: Record<string, number>;
+  quality_metrics: {
+    average_quality_score: number;
+    newsletters_with_scores: number;
+  };
+  cost_metrics: {
+    total_generation_cost: number;
+    average_cost_per_newsletter: number;
+    newsletters_with_cost_data: number;
+  };
+  recent_newsletters: Array<{
+    id: number;
+    title: string;
+    type: string;
+    status: NewsletterStatus;
+    generation_date: string;
+    quality_score: number | null;
+  }>;
+  timestamp: string;
+}
+
+// Newsletter status options for dropdowns
+export const NEWSLETTER_STATUS_OPTIONS: SelectOption[] = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'REVIEW', label: 'Review' },
+  { value: 'PUBLISHED', label: 'Published' },
+  { value: 'ARCHIVED', label: 'Archived' },
+];
+
+export const NEWSLETTER_TYPE_OPTIONS: SelectOption[] = [
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY', label: 'Weekly' },
 ];

@@ -1,6 +1,6 @@
 /**
  * Sidebar Navigation Component
- * 
+ *
  * Main navigation sidebar with route links, user info, and system status.
  * Responsive design with mobile support.
  */
@@ -11,11 +11,12 @@ import { useAuth } from '@/hooks/auth/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  FileText,
+  Mail,
+  Settings,
+  LogOut,
   X,
   Activity,
   User
@@ -37,6 +38,12 @@ const navigation = [
     href: '/articles',
     icon: FileText,
     description: 'Browse articles'
+  },
+  {
+    name: 'Newsletters',
+    href: '/newsletters',
+    icon: Mail,
+    description: 'Manage newsletters'
   },
   {
     name: 'System',
@@ -66,7 +73,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <Activity className="h-6 w-6 text-primary" />
           <span className="text-lg font-semibold">Admin</span>
         </div>
-        
+
         {/* Mobile close button */}
         {onClose && (
           <Button
@@ -83,9 +90,10 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = location.pathname === item.href || 
-                          (item.href === '/articles' && location.pathname.startsWith('/articles'));
-          
+          const isActive = location.pathname === item.href ||
+                          (item.href === '/articles' && location.pathname.startsWith('/articles')) ||
+                          (item.href === '/newsletters' && location.pathname.startsWith('/newsletters'));
+
           return (
             <NavLink
               key={item.name}

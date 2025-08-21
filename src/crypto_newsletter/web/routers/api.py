@@ -3,11 +3,19 @@
 from datetime import UTC, datetime
 from typing import Any, Optional
 
-from crypto_newsletter.core.storage.repository import ArticleRepository
+from crypto_newsletter.core.storage.repository import (
+    ArticleRepository,
+    NewsletterRepository,
+)
+from crypto_newsletter.newsletter.tasks import generate_newsletter_manual_task
 from crypto_newsletter.shared.config.settings import get_settings
 from crypto_newsletter.shared.database.connection import get_db_session
 from crypto_newsletter.web.models import (
     ArticleResponse,
+    NewsletterGenerationRequest,
+    NewsletterListResponse,
+    NewsletterResponse,
+    NewsletterUpdateRequest,
     PublisherResponse,
     StatsResponse,
     TaskScheduleRequest,
@@ -337,3 +345,305 @@ async def webhook_trigger_ingest(
             raise HTTPException(
                 status_code=500, detail=f"Failed to schedule webhook ingestion: {e}"
             )
+
+
+# Newsletter endpoints
+@router.get("/newsletters", response_model=NewsletterListResponse)
+async def get_newsletters(
+    limit: int = Query(
+        10, description="Maximum number of newsletters to return", le=100
+    ),
+    offset: int = Query(0, description="Number of newsletters to skip"),
+    status: Optional[str] = Query(None, description="Filter by newsletter status"),
+    newsletter_type: Optional[str] = Query(
+        None, description="Filter by newsletter type (DAILY/WEEKLY)"
+    ),
+    start_date: Optional[str] = Query(
+        None, description="Filter by start date (ISO 8601)"
+    ),
+    end_date: Optional[str] = Query(None, description="Filter by end date (ISO 8601)"),
+    api_key: Optional[str] = Security(get_api_key),
+) -> NewsletterListResponse:
+    """
+    Get list of newsletters with optional filtering.
+
+    Args:
+        limit: Maximum number of newsletters to return
+        offset: Number of newsletters to skip for pagination
+        status: Filter by newsletter status (DRAFT, REVIEW, PUBLISHED, ARCHIVED)
+        newsletter_type: Filter by newsletter type (DAILY, WEEKLY)
+        start_date: Filter by generation date start (ISO 8601)
+        end_date: Filter by generation date end (ISO 8601)
+        api_key: Optional API key for authentication
+
+    Returns:
+        List of newsletters matching criteria with pagination info
+    """
+    try:
+        async with get_db_session() as db:
+            newsletter_repo = NewsletterRepository(db)
+
+            # Get newsletters with filters
+            newsletters = await newsletter_repo.get_newsletters_with_filters(
+                limit=limit,
+                offset=offset,
+                status=status,
+                newsletter_type=newsletter_type,
+                start_date=start_date,
+                end_date=end_date,
+            )
+
+            # Get total count for pagination
+            total_count = await newsletter_repo.count_newsletters_with_filters(
+                status=status,
+                newsletter_type=newsletter_type,
+                start_date=start_date,
+                end_date=end_date,
+            )
+
+            # Convert to response models
+            newsletter_responses = []
+            for newsletter in newsletters:
+                newsletter_responses.append(
+                    NewsletterResponse(
+                        id=newsletter.id,
+                        title=newsletter.title,
+                        content=newsletter.content,
+                        summary=newsletter.summary,
+                        generation_date=newsletter.generation_date.isoformat(),
+                        status=newsletter.status,
+                        quality_score=newsletter.quality_score,
+                        agent_version=newsletter.agent_version,
+                        generation_metadata=newsletter.generation_metadata,
+                        published_at=newsletter.published_at.isoformat()
+                        if newsletter.published_at
+                        else None,
+                        created_at=newsletter.created_at.isoformat(),
+                        updated_at=newsletter.updated_at.isoformat(),
+                    )
+                )
+
+            return NewsletterListResponse(
+                newsletters=newsletter_responses,
+                total_count=total_count,
+                page=offset // limit + 1,
+                limit=limit,
+                has_more=(offset + limit) < total_count,
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve newsletters: {e}"
+        )
+
+
+@router.get("/newsletters/{newsletter_id}", response_model=NewsletterResponse)
+async def get_newsletter(
+    newsletter_id: int,
+    api_key: Optional[str] = Security(get_api_key),
+) -> NewsletterResponse:
+    """
+    Get specific newsletter by ID.
+
+    Args:
+        newsletter_id: Newsletter ID to retrieve
+        api_key: Optional API key for authentication
+
+    Returns:
+        Newsletter details
+    """
+    try:
+        async with get_db_session() as db:
+            newsletter_repo = NewsletterRepository(db)
+
+            newsletter = await newsletter_repo.get_newsletter_by_id(newsletter_id)
+            if not newsletter:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Newsletter with ID {newsletter_id} not found",
+                )
+
+            return NewsletterResponse(
+                id=newsletter.id,
+                title=newsletter.title,
+                content=newsletter.content,
+                summary=newsletter.summary,
+                generation_date=newsletter.generation_date.isoformat(),
+                status=newsletter.status,
+                quality_score=newsletter.quality_score,
+                agent_version=newsletter.agent_version,
+                generation_metadata=newsletter.generation_metadata,
+                published_at=newsletter.published_at.isoformat()
+                if newsletter.published_at
+                else None,
+                created_at=newsletter.created_at.isoformat(),
+                updated_at=newsletter.updated_at.isoformat(),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve newsletter: {e}"
+        )
+
+
+@router.post("/newsletters/generate")
+async def generate_newsletter(
+    request: NewsletterGenerationRequest,
+    api_key: Optional[str] = Security(get_api_key),
+) -> dict[str, Any]:
+    """
+    Trigger newsletter generation.
+
+    Args:
+        request: Newsletter generation parameters
+        api_key: Optional API key for authentication
+
+    Returns:
+        Generation task information
+    """
+    try:
+        # Validate newsletter type
+        if request.newsletter_type.upper() not in ["DAILY", "WEEKLY"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid newsletter type: {request.newsletter_type}. Must be DAILY or WEEKLY",
+            )
+
+        # Trigger newsletter generation task
+        result = generate_newsletter_manual_task.delay(
+            newsletter_type=request.newsletter_type.upper(),
+            force_generation=request.force_generation,
+        )
+
+        return {
+            "success": True,
+            "task_id": result.id,
+            "newsletter_type": request.newsletter_type.upper(),
+            "force_generation": request.force_generation,
+            "status": "queued",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to trigger newsletter generation: {e}"
+        )
+
+
+@router.put("/newsletters/{newsletter_id}/status")
+async def update_newsletter_status(
+    newsletter_id: int,
+    request: NewsletterUpdateRequest,
+    api_key: Optional[str] = Security(get_api_key),
+) -> dict[str, Any]:
+    """
+    Update newsletter status and other fields.
+
+    Args:
+        newsletter_id: Newsletter ID to update
+        request: Newsletter update parameters
+        api_key: Optional API key for authentication
+
+    Returns:
+        Update confirmation
+    """
+    try:
+        async with get_db_session() as db:
+            newsletter_repo = NewsletterRepository(db)
+
+            # Check if newsletter exists
+            newsletter = await newsletter_repo.get_newsletter_by_id(newsletter_id)
+            if not newsletter:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Newsletter with ID {newsletter_id} not found",
+                )
+
+            # Validate status if provided
+            if request.status and request.status not in [
+                "DRAFT",
+                "REVIEW",
+                "PUBLISHED",
+                "ARCHIVED",
+            ]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status: {request.status}. Must be DRAFT, REVIEW, PUBLISHED, or ARCHIVED",
+                )
+
+            # Update newsletter
+            updated_newsletter = await newsletter_repo.update_newsletter(
+                newsletter_id=newsletter_id,
+                status=request.status,
+                title=request.title,
+                content=request.content,
+                summary=request.summary,
+            )
+
+            return {
+                "success": True,
+                "newsletter_id": newsletter_id,
+                "updated_fields": {
+                    k: v
+                    for k, v in {
+                        "status": request.status,
+                        "title": request.title,
+                        "content": request.content,
+                        "summary": request.summary,
+                    }.items()
+                    if v is not None
+                },
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update newsletter: {e}")
+
+
+@router.delete("/newsletters/{newsletter_id}")
+async def delete_newsletter(
+    newsletter_id: int,
+    api_key: Optional[str] = Security(get_api_key),
+) -> dict[str, Any]:
+    """
+    Delete newsletter by ID.
+
+    Args:
+        newsletter_id: Newsletter ID to delete
+        api_key: Optional API key for authentication
+
+    Returns:
+        Deletion confirmation
+    """
+    try:
+        async with get_db_session() as db:
+            newsletter_repo = NewsletterRepository(db)
+
+            # Check if newsletter exists
+            newsletter = await newsletter_repo.get_newsletter_by_id(newsletter_id)
+            if not newsletter:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Newsletter with ID {newsletter_id} not found",
+                )
+
+            # Delete newsletter
+            await newsletter_repo.delete_newsletter(newsletter_id)
+
+            return {
+                "success": True,
+                "newsletter_id": newsletter_id,
+                "message": "Newsletter deleted successfully",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete newsletter: {e}")

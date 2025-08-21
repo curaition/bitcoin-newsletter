@@ -6,7 +6,9 @@ from typing import Optional
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -325,4 +327,68 @@ class BatchProcessingRecord(Base, TimestampMixin):
             name="check_batch_record_status",
         ),
         UniqueConstraint("session_id", "batch_number", name="uq_session_batch_number"),
+    )
+
+
+class Newsletter(Base, TimestampMixin):
+    """Newsletter model for storing generated newsletter content."""
+
+    __tablename__ = "newsletters"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    generation_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT", nullable=False)
+    quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    agent_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    generation_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    published_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Relationships
+    newsletter_articles: Mapped[list["NewsletterArticle"]] = relationship(
+        "NewsletterArticle", back_populates="newsletter", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'ARCHIVED')",
+            name="check_newsletter_status",
+        ),
+        CheckConstraint(
+            "quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 1)",
+            name="check_quality_score",
+        ),
+    )
+
+
+class NewsletterArticle(Base):
+    """Junction table for newsletter-article relationships."""
+
+    __tablename__ = "newsletter_articles"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    newsletter_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("newsletters.id"), nullable=False
+    )
+    article_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("articles.id"), nullable=False
+    )
+    selection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    importance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    newsletter: Mapped["Newsletter"] = relationship(
+        "Newsletter", back_populates="newsletter_articles"
+    )
+    article: Mapped["Article"] = relationship("Article")
+
+    __table_args__ = (
+        UniqueConstraint("newsletter_id", "article_id", name="uq_newsletter_article"),
     )
