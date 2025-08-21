@@ -198,7 +198,7 @@ services:
     startCommand: "cd admin-dashboard && serve -s dist -l $PORT"
     envVars:
       - key: VITE_API_URL
-        value: "https://bitcoin-newsletter-api-pr-2.onrender.com"
+        value: "https://bitcoin-newsletter-api.onrender.com"
       - key: VITE_APP_ENV
         value: "production"
       - key: VITE_APP_VERSION

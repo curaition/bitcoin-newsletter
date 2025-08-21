@@ -89,7 +89,6 @@ def create_app() -> FastAPI:
     # CORS middleware
     allowed_origins = ["*"] if settings.effective_environment == "development" else [
         "https://bitcoin-newsletter-admin.onrender.com",  # Production frontend
-        "https://bitcoin-newsletter-admin-pr-2.onrender.com",  # PR preview frontend
         "http://localhost:3000",  # Development frontend
     ]
 
