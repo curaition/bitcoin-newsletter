@@ -43,16 +43,16 @@ class NewsletterOrchestrator:
             formatted_articles = self.format_articles_for_selection(articles)
             selection_result = await self.story_agent.run(formatted_articles)
 
-            if len(selection_result.data.selected_stories) < 3:
+            if len(selection_result.output.selected_stories) < 3:
                 raise ValueError("Not enough quality stories selected")
 
             # Step 2: Synthesis
             logger.info(
-                f"Synthesizing {len(selection_result.data.selected_stories)} selected stories"
+                f"Synthesizing {len(selection_result.output.selected_stories)} selected stories"
             )
 
             synthesis_input = self.format_selection_for_synthesis(
-                selection_result.data, articles
+                selection_result.output, articles
             )
             synthesis_result = await self.synthesis_agent.run(synthesis_input)
 
@@ -60,7 +60,7 @@ class NewsletterOrchestrator:
             logger.info("Generating newsletter content")
 
             writing_input = self.format_synthesis_for_writing(
-                synthesis_result.data, selection_result.data
+                synthesis_result.output, selection_result.output
             )
             newsletter_result = await self.writer_agent.run(writing_input)
 
@@ -75,14 +75,14 @@ class NewsletterOrchestrator:
 
             return {
                 "success": True,
-                "newsletter_content": newsletter_result.data,
-                "story_selection": selection_result.data,
-                "synthesis": synthesis_result.data,
+                "newsletter_content": newsletter_result.output,
+                "story_selection": selection_result.output,
+                "synthesis": synthesis_result.output,
                 "generation_metadata": {
                     "articles_reviewed": len(articles),
-                    "stories_selected": len(selection_result.data.selected_stories),
+                    "stories_selected": len(selection_result.output.selected_stories),
                     "generation_cost": total_cost,
-                    "quality_score": newsletter_result.data.editorial_quality_score,
+                    "quality_score": newsletter_result.output.editorial_quality_score,
                 },
             }
 
@@ -311,8 +311,8 @@ Please create compelling newsletter content that transforms this analysis into a
             writer_agent = NewsletterWriterAgent()
             weekly_content = await writer_agent.run(
                 f"Create weekly newsletter from daily newsletter synthesis:\n\n"
-                f"Weekly Synthesis: {weekly_synthesis.data.market_narrative}\n\n"
-                f"Key Themes: {', '.join(weekly_synthesis.data.primary_themes)}\n\n"
+                f"Weekly Synthesis: {weekly_synthesis.output.market_narrative}\n\n"
+                f"Key Themes: {', '.join(weekly_synthesis.output.primary_themes)}\n\n"
                 f"Daily Newsletter Summaries:\n"
                 + "\n".join(
                     [
@@ -333,13 +333,13 @@ Please create compelling newsletter content that transforms this analysis into a
 
             return {
                 "success": True,
-                "newsletter_content": weekly_content.data,
+                "newsletter_content": weekly_content.output,
                 "story_selection": weekly_selection,
-                "synthesis": weekly_synthesis.data,
+                "synthesis": weekly_synthesis.output,
                 "generation_metadata": {
                     "generation_cost": generation_cost,
                     "daily_newsletters_processed": len(daily_newsletters),
-                    "synthesis_confidence": weekly_synthesis.data.synthesis_confidence,
+                    "synthesis_confidence": weekly_synthesis.output.synthesis_confidence,
                     "agent_versions": {"synthesis": "1.0", "writer": "1.0"},
                 },
             }
