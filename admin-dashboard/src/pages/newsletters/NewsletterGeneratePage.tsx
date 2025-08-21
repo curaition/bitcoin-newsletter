@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,7 @@ import type { NewsletterType } from '../../../../shared/types/api';
 import { NEWSLETTER_TYPE_OPTIONS } from '../../../../shared/types/api';
 
 export function NewsletterGeneratePage() {
-  // const navigate = useNavigate(); // Temporarily unused
+
   const [selectedType, setSelectedType] = useState<NewsletterType>('DAILY');
   const [forceGeneration, setForceGeneration] = useState(false);
   const [generationResult, setGenerationResult] = useState<any>(null);
@@ -225,10 +225,12 @@ export function NewsletterGeneratePage() {
               {/* Force Generation Option */}
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
-                  <Checkbox
+                  <input
+                    type="checkbox"
                     id="force-generation"
                     checked={forceGeneration}
-                    onCheckedChange={setForceGeneration}
+                    onChange={(e) => setForceGeneration(e.target.checked)}
+                    className="w-4 h-4"
                   />
                   <label htmlFor="force-generation" className="text-sm font-medium">
                     Force Generation

@@ -287,18 +287,18 @@ export function NewsletterDetailPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Update Status</label>
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NEWSLETTER_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value as NewsletterStatus)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Select new status</option>
+                  {NEWSLETTER_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <Button
                 onClick={handleStatusUpdate}
