@@ -427,13 +427,11 @@ async def generate_newsletter_manual_task(
     logger.info(f"Manual newsletter generation triggered: {newsletter_type}")
 
     if newsletter_type.upper() == "DAILY":
-        # Call the task function directly by creating a new task instance
-        task_instance = generate_daily_newsletter_task
-        return await task_instance(self, force_generation=force_generation)
+        # Call the task function directly - Celery handles 'self' automatically
+        return await generate_daily_newsletter_task(force_generation=force_generation)
     elif newsletter_type.upper() == "WEEKLY":
-        # Call the task function directly by creating a new task instance
-        task_instance = generate_weekly_newsletter_task
-        return await task_instance(self, force_generation=force_generation)
+        # Call the task function directly - Celery handles 'self' automatically
+        return await generate_weekly_newsletter_task(force_generation=force_generation)
     else:
         return {
             "status": "failed",
