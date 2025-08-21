@@ -316,6 +316,8 @@ export interface NewsletterGenerationResponse {
   newsletter_type: NewsletterType;
   force_generation: boolean;
   status: string;
+  message: string;
+  progress_endpoint?: string;
   timestamp: string;
 }
 
@@ -324,6 +326,48 @@ export interface NewsletterUpdateRequest {
   title?: string;
   content?: string;
   summary?: string;
+}
+
+// Newsletter Generation Progress Types
+export interface GenerationProgress {
+  task_id: string;
+  current_step: string;
+  step_progress: number;
+  overall_progress: number;
+  status: 'in_progress' | 'complete' | 'failed';
+  step_details: {
+    status: string;
+    step_description?: string;
+    articles_count?: number;
+    selected_count?: number;
+    quality_score?: number;
+    citation_count?: number;
+    word_count?: number;
+    themes_identified?: number;
+    unique_insights?: number;
+  };
+  intermediate_results?: {
+    selection?: {
+      selected_stories: Array<{
+        title: string;
+        publisher: string;
+        signal_strength: number;
+        reasoning: string;
+      }>;
+    };
+    synthesis?: {
+      primary_themes: string[];
+      market_narrative_preview: string;
+    };
+    writing?: {
+      title: string;
+      executive_summary: string[];
+      citation_count: number;
+    };
+  };
+  estimated_completion?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface NewsletterStatsResponse {

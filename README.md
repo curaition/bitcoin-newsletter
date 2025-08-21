@@ -12,6 +12,33 @@ This project implements a comprehensive crypto newsletter system that:
 - Generates AI-powered newsletters with signal detection
 - Deploys on Railway with Neon database backend
 
+## Features
+
+### 🔍 Intelligent Signal Detection
+- **Multi-Agent Analysis**: PydanticAI-powered system with specialized agents for content analysis and signal validation
+- **Weak Signal Identification**: Detects early indicators of market shifts, regulatory changes, and technological developments
+- **Pattern Anomaly Detection**: Identifies deviations from expected market patterns and behaviors
+- **Adjacent Possibility Mapping**: Discovers connections between crypto developments and external domains
+- **Quality Validation**: Comprehensive validation system ensuring signal accuracy and relevance
+
+### 📰 Enhanced Newsletter Generation
+- **Real-time Progress Tracking**: Step-by-step visualization of newsletter generation with live updates
+- **Quality Validation Gates**: Automated quality checks at each generation step with configurable thresholds
+- **Rich Citation System**: Proper article citations with URLs and signal confidence scores
+- **Daily & Weekly Newsletters**: Automated generation based on analyzed articles and detected signals
+- **Story Selection**: AI-powered selection of the most revealing and unique stories with transparency
+- **Synthesis & Analysis**: Cross-story pattern identification and thematic analysis with preview
+- **Editorial Quality**: Professional newsletter writing with enhanced prompts and validation
+- **Manual Override**: Admin interface with progress monitoring and error recovery
+
+### 📊 Advanced Monitoring & Alerting
+- **Real-time Progress Visualization**: Live tracking of newsletter generation with step indicators
+- **Quality Metrics Dashboard**: Comprehensive tracking of generation quality, citations, and success rates
+- **Intelligent Alert System**: Automated alerts for quality degradation, failures, and stuck processes
+- **Performance Analytics**: Detailed metrics for signal detection, generation times, and cost tracking
+- **Health Monitoring**: System, database, and external API monitoring with proactive issue detection
+- **Admin Dashboard**: Enhanced web interface with progress tracking and quality management
+
 ## Quick Start
 
 ### Prerequisites

@@ -2,9 +2,8 @@
 
 from pydantic_ai import Agent
 
-from ..models.newsletter import NewsletterContent
 from ...analysis.agents.providers import get_content_analysis_model
-
+from ..models.newsletter import NewsletterContent
 
 # Newsletter Writer Agent with Gemini 2.5 Flash
 newsletter_writer_agent = Agent(
@@ -26,6 +25,21 @@ CONTENT STRUCTURE:
 4. **Adjacent Watch**: Cross-domain developments readers should monitor (200-300 words)
 5. **Signal Radar**: Weak signals worth tracking for future relevance (100-150 words)
 6. **Action Items**: Specific, actionable takeaways
+
+CITATION REQUIREMENTS (CRITICAL):
+- MUST include article URLs for all major claims and insights
+- Format citations as: "According to [Article Title](URL), ..."
+- Reference specific articles by title when discussing patterns
+- Include at least 8-10 direct article citations throughout the newsletter
+- End with comprehensive "Sources" section listing all referenced articles with URLs
+- Use signal strength and confidence scores to support arguments
+
+SIGNAL UTILIZATION:
+- Reference specific weak signals by type and confidence score
+- Example: "A high-confidence institutional behavior signal (0.87) suggests..."
+- Mention pattern anomalies with their significance levels
+- Highlight adjacent connections with relevance scores
+- Use uniqueness scores to prioritize contrarian insights
 
 QUALITY STANDARDS:
 - Provide insights not available elsewhere (>85% unique content)

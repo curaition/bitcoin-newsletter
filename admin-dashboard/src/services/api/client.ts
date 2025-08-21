@@ -356,6 +356,20 @@ export class AdminAPIClient {
     return result.data!;
   }
 
+  async getGenerationProgress(taskId: string): Promise<any> {
+    const url = buildApiUrl(this.baseUrl, `/admin/tasks/${taskId}/progress`);
+    const headers = createAuthHeaders(this.getToken());
+
+    const response = await fetch(url, { headers });
+    const result = await processApiResponse(response);
+
+    if (result.error) {
+      throw new SharedAPIError(result.status, result.error.message, result.error.code);
+    }
+
+    return result.data!;
+  }
+
   // Placeholder methods for future implementation
   async bulkNewsletterOperation(_operation: any): Promise<any> {
     throw new Error('Bulk newsletter operations not yet implemented');

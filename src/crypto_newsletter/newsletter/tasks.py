@@ -6,6 +6,9 @@ from typing import Any
 
 from crypto_newsletter.core.storage import ArticleRepository, NewsletterRepository
 from crypto_newsletter.newsletter.agents.orchestrator import NewsletterOrchestrator
+from crypto_newsletter.newsletter.agents.progress_orchestrator import (
+    ProgressAwareNewsletterOrchestrator,
+)
 from crypto_newsletter.newsletter.storage import NewsletterStorage
 from crypto_newsletter.shared.celery.app import celery_app
 from crypto_newsletter.shared.database.connection import get_db_session
@@ -74,6 +77,123 @@ class NewsletterGenerationException(Exception):
     """Raised when newsletter generation fails."""
 
     pass
+
+
+@celery_app.task(bind=True, name="generate_newsletter_manual_task_enhanced")
+def generate_newsletter_manual_task_enhanced(
+    self, newsletter_type: str = "DAILY", force_generation: bool = False
+):
+    """Enhanced newsletter generation task with progress tracking."""
+    import asyncio
+
+    async def _generate_newsletter_enhanced():
+        """Async newsletter generation with progress tracking."""
+        try:
+            logger.info(f"Starting enhanced {newsletter_type} newsletter generation")
+
+            # Initialize enhanced orchestrator with task ID
+            orchestrator = ProgressAwareNewsletterOrchestrator()
+            orchestrator.set_task_id(self.request.id)
+
+            async with get_db_session() as db:
+                article_repo = ArticleRepository(db)
+                newsletter_repo = NewsletterRepository(db)
+
+                if newsletter_type.upper() == "DAILY":
+                    # Check if daily newsletter already exists for today
+                    if not force_generation:
+                        today = datetime.now().date()
+                        existing = (
+                            await newsletter_repo.get_newsletter_by_date_and_type(
+                                today, "DAILY"
+                            )
+                        )
+                        if existing:
+                            logger.info(f"Daily newsletter already exists for {today}")
+                            return {
+                                "success": True,
+                                "message": "Daily newsletter already exists",
+                                "newsletter_id": existing.id,
+                                "skipped": True,
+                            }
+
+                    # Get articles from last 24 hours with analysis
+                    cutoff_time = datetime.now() - timedelta(hours=24)
+                    articles = await article_repo.get_articles_with_analysis_since(
+                        cutoff_time, min_word_count=2000
+                    )
+
+                    if len(articles) < 10:
+                        logger.warning(
+                            f"Only {len(articles)} articles available for daily newsletter"
+                        )
+                        return {
+                            "success": False,
+                            "message": f"Insufficient articles ({len(articles)}) for newsletter generation",
+                            "articles_found": len(articles),
+                        }
+
+                    # Convert articles for agent processing
+                    articles_for_agents = await _convert_articles_for_agents(
+                        articles, db
+                    )
+
+                    # Generate newsletter with progress tracking
+                    result = await orchestrator.generate_daily_newsletter_with_progress(
+                        articles_for_agents, newsletter_type
+                    )
+
+                    logger.info(
+                        f"Enhanced daily newsletter generation completed: {result['newsletter_id']}"
+                    )
+                    return result
+
+                else:
+                    raise ValueError(f"Invalid newsletter type: {newsletter_type}")
+
+        except Exception as e:
+            logger.error(f"Enhanced newsletter generation failed: {e}", exc_info=True)
+            raise
+
+    # Run the async function
+    return asyncio.run(_generate_newsletter_enhanced())
+
+
+@celery_app.task(bind=True, name="check_newsletter_alerts_task")
+def check_newsletter_alerts_task(self):
+    """Periodic task to check for newsletter generation alerts."""
+    import asyncio
+
+    async def _check_alerts():
+        """Async alert checking."""
+        try:
+            from crypto_newsletter.newsletter.alerts import check_newsletter_alerts
+
+            logger.info("Starting newsletter alert check")
+            alerts = await check_newsletter_alerts()
+
+            alert_summary = {
+                "total_alerts": len(alerts),
+                "critical_alerts": len(
+                    [a for a in alerts if a.severity.value == "critical"]
+                ),
+                "warning_alerts": len(
+                    [a for a in alerts if a.severity.value == "warning"]
+                ),
+                "info_alerts": len([a for a in alerts if a.severity.value == "info"]),
+                "alert_types": list(set(a.alert_type.value for a in alerts)),
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            logger.info(f"Newsletter alert check completed: {alert_summary}")
+            return alert_summary
+
+        except Exception as e:
+            logger.error(f"Newsletter alert check failed: {e}", exc_info=True)
+            raise
+
+    # Run the async function
+    return asyncio.run(_check_alerts())
 
 
 @celery_app.task(

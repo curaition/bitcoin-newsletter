@@ -8,7 +8,10 @@ from crypto_newsletter.core.storage.repository import (
     NewsletterRepository,
 )
 from crypto_newsletter.newsletter.monitoring import get_newsletter_health_status
-from crypto_newsletter.newsletter.tasks import generate_newsletter_manual_task
+from crypto_newsletter.newsletter.services.progress_tracker import ProgressTracker
+from crypto_newsletter.newsletter.tasks import (
+    generate_newsletter_manual_task_enhanced,
+)
 from crypto_newsletter.shared.config.settings import get_settings
 from crypto_newsletter.shared.database.connection import get_db_session
 from crypto_newsletter.web.models import (
@@ -487,8 +490,8 @@ async def admin_generate_newsletter(
                 detail=f"Invalid newsletter type: {request.newsletter_type}. Must be DAILY or WEEKLY",
             )
 
-        # Trigger newsletter generation task
-        result = generate_newsletter_manual_task.delay(
+        # Trigger enhanced newsletter generation task with progress tracking
+        result = generate_newsletter_manual_task_enhanced.delay(
             newsletter_type=request.newsletter_type.upper(),
             force_generation=request.force_generation,
         )
@@ -499,7 +502,8 @@ async def admin_generate_newsletter(
             "newsletter_type": request.newsletter_type.upper(),
             "force_generation": request.force_generation,
             "status": "queued",
-            "message": f"{request.newsletter_type.upper()} newsletter generation queued",
+            "message": f"{request.newsletter_type.upper()} newsletter generation started with progress tracking",
+            "progress_endpoint": f"/admin/tasks/{result.id}/progress",
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
@@ -865,3 +869,38 @@ async def delete_admin_newsletter(newsletter_id: int) -> dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete newsletter: {e}")
+
+
+@router.get("/tasks/{task_id}/progress")
+async def get_generation_progress(task_id: str) -> dict[str, Any]:
+    """Get real-time progress for newsletter generation task."""
+    try:
+        async with ProgressTracker() as tracker:
+            progress = await tracker.get_progress(task_id)
+
+            if not progress:
+                raise HTTPException(status_code=404, detail="Task not found")
+
+            return {
+                "task_id": task_id,
+                "current_step": progress.current_step,
+                "step_progress": progress.step_progress,
+                "overall_progress": progress.overall_progress,
+                "status": progress.status,
+                "step_details": progress.step_details,
+                "intermediate_results": progress.intermediate_results,
+                "estimated_completion": (
+                    progress.estimated_completion.isoformat()
+                    if progress.estimated_completion
+                    else None
+                ),
+                "created_at": progress.created_at.isoformat(),
+                "updated_at": progress.updated_at.isoformat(),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get progress for task {task_id}: {e}"
+        )

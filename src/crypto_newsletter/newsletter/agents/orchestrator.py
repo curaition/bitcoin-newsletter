@@ -98,6 +98,7 @@ class NewsletterOrchestrator:
             article_summary = f"""
 ARTICLE ID: {article['id']}
 TITLE: {article['title']}
+URL: {article.get('url', 'No URL available')}
 PUBLISHER: {article.get('publisher', 'Unknown')}
 PUBLISHED: {article.get('published_on', 'Unknown')}
 SIGNAL STRENGTH: {article.get('signal_strength', 0):.2f}
@@ -125,12 +126,16 @@ STORY SELECTION BRIEFING
 Date: {datetime.now().strftime('%Y-%m-%d')}
 Total Articles for Review: {len(articles)}
 
-Please select the 5-8 most revealing stories that best demonstrate emerging patterns and provide unique market intelligence.
+Please select the 5-8 most revealing stories that best demonstrate emerging
+patterns and provide unique market intelligence.
 
 ARTICLES FOR REVIEW:
 {''.join(formatted_articles)}
 
-Focus on stories with strong signals, unique insights, and cross-domain implications that mainstream crypto media typically misses.
+Focus on stories with strong signals, unique insights, and cross-domain
+implications that mainstream crypto media typically misses.
+
+IMPORTANT: Remember article URLs for proper citations in the final newsletter.
 """
 
     def format_selection_for_synthesis(
@@ -212,31 +217,46 @@ Please create compelling newsletter content that transforms this analysis into a
 """
 
     def format_signals_list(self, signals: list[dict[str, Any]]) -> str:
-        """Format signals list for display."""
+        """Format signals with correct field names and rich context."""
         if not signals:
             return "None identified"
-        return "\n".join(
-            f"- {signal.get('signal', 'Unknown')}: {signal.get('description', 'No description')}"
-            for signal in signals[:3]
-        )
+
+        formatted = []
+        for signal in signals[:5]:  # Show more signals
+            formatted.append(
+                f"- {signal.get('signal_type', 'Unknown')}: {signal.get('description', 'No description')} "
+                f"(confidence: {signal.get('confidence', 0):.2f}, {signal.get('timeframe', 'unknown')})"
+            )
+        return "\n".join(formatted)
 
     def format_patterns_list(self, patterns: list[dict[str, Any]]) -> str:
-        """Format patterns list for display."""
+        """Format patterns with correct field names and significance."""
         if not patterns:
             return "None identified"
-        return "\n".join(
-            f"- {pattern.get('pattern', 'Unknown')}: {pattern.get('description', 'No description')}"
-            for pattern in patterns[:3]
-        )
+
+        formatted = []
+        for pattern in patterns[:3]:
+            formatted.append(
+                f"- Expected: {pattern.get('expected_pattern', 'Unknown')}, "
+                f"Observed: {pattern.get('observed_pattern', 'Unknown')} "
+                f"(significance: {pattern.get('deviation_significance', 0):.2f})"
+            )
+        return "\n".join(formatted)
 
     def format_connections_list(self, connections: list[dict[str, Any]]) -> str:
-        """Format connections list for display."""
+        """Format connections with correct field names and relevance."""
         if not connections:
             return "None identified"
-        return "\n".join(
-            f"- {conn.get('connection', 'Unknown')}: {conn.get('description', 'No description')}"
-            for conn in connections[:3]
-        )
+
+        formatted = []
+        for conn in connections[:4]:
+            formatted.append(
+                f"- {conn.get('crypto_element', 'Unknown')} → "
+                f"{conn.get('external_domain', 'Unknown')} "
+                f"({conn.get('connection_type', 'Unknown')}, "
+                f"relevance: {conn.get('relevance', 0):.2f})"
+            )
+        return "\n".join(formatted)
 
     def calculate_generation_cost(self, usages: list[Any]) -> float:
         """Calculate total cost from agent usages."""

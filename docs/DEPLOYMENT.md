@@ -600,3 +600,74 @@ railway up --service web
 - **Railway Support**: https://railway.app/help
 - **Neon Support**: https://neon.tech/docs/support
 - **Development Team**: [Your team contact information]
+
+## Enhanced Features (v2.1.0)
+
+### Real-time Progress Tracking
+
+The application now includes comprehensive progress tracking for newsletter generation:
+
+**Database Schema**:
+- New `newsletter_generation_progress` table with JSONB columns for flexible data storage
+- Proper indexing for efficient querying and real-time updates
+- Automatic cleanup of old progress records
+
+**API Endpoints**:
+```bash
+# Get real-time progress for a generation task
+curl https://your-app.onrender.com/admin/tasks/{task_id}/progress
+
+# Generate newsletter with progress tracking
+curl -X POST https://your-app.onrender.com/admin/newsletters/generate \
+  -H "Content-Type: application/json" \
+  -d '{"newsletter_type": "DAILY", "force_generation": false}'
+```
+
+**Frontend Integration**:
+- Real-time progress visualization with step indicators
+- Quality metrics dashboard with live updates
+- Intermediate results preview during generation
+- Error handling with retry capabilities
+
+### Enhanced Monitoring & Alerting
+
+**Quality Metrics Tracking**:
+- Average quality score monitoring (target: >0.7)
+- Citation count validation (target: >5 per newsletter)
+- Generation success/failure rate tracking
+- Signal utilization effectiveness metrics
+
+**Intelligent Alert System**:
+```bash
+# Configure alert thresholds via environment variables
+ALERT_QUALITY_SCORE_WARNING=0.7
+ALERT_QUALITY_SCORE_CRITICAL=0.5
+ALERT_CITATION_COUNT_WARNING=5
+ALERT_CITATION_COUNT_CRITICAL=3
+ALERT_FAILURE_RATE_WARNING=0.2
+ALERT_FAILURE_RATE_CRITICAL=0.5
+ALERT_STUCK_GENERATION_HOURS=2
+```
+
+**Automated Alert Checking**:
+- Celery beat task runs every 15 minutes
+- Structured logging with alert severity levels
+- Proactive detection of quality degradation
+- Stuck generation process monitoring
+
+### Deployment Updates
+
+**Environment Variables** (add to existing configuration):
+```bash
+# Alert thresholds
+ALERT_QUALITY_SCORE_WARNING=0.7
+ALERT_QUALITY_SCORE_CRITICAL=0.5
+ALERT_CITATION_COUNT_WARNING=5
+ALERT_CITATION_COUNT_CRITICAL=3
+ALERT_FAILURE_RATE_WARNING=0.2
+ALERT_FAILURE_RATE_CRITICAL=0.5
+ALERT_STUCK_GENERATION_HOURS=2
+```
+
+**Health Check Updates**:
+The `/health/newsletter` endpoint now includes generation progress monitoring with quality alerts and comprehensive metrics tracking.

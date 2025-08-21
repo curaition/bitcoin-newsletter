@@ -509,3 +509,135 @@ grep "db_operation" logs/app.log | jq 'select(.duration_ms > 1000)'
 - Eviction tracking
 
 This comprehensive monitoring and logging system provides full observability into the Bitcoin Newsletter application, enabling proactive issue detection and resolution.
+
+## Newsletter Generation Progress Tracking
+
+### Real-time Progress Monitoring
+
+The system now includes comprehensive progress tracking for newsletter generation with real-time updates and quality validation.
+
+**Progress Tracking Features:**
+- Step-by-step progress visualization (Selection → Synthesis → Writing → Storage)
+- Real-time quality metrics and validation gates
+- Intermediate results preview for transparency
+- Estimated completion times and progress percentages
+- Automatic error detection and recovery
+
+**Database Schema:**
+```sql
+CREATE TABLE newsletter_generation_progress (
+    task_id VARCHAR PRIMARY KEY,
+    current_step VARCHAR NOT NULL,
+    step_progress FLOAT DEFAULT 0.0,
+    overall_progress FLOAT DEFAULT 0.0,
+    step_details JSONB DEFAULT '{}',
+    intermediate_results JSONB DEFAULT '{}',
+    quality_metrics JSONB DEFAULT '{}',
+    articles_being_processed JSONB DEFAULT '[]',
+    estimated_completion TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR DEFAULT 'in_progress'
+);
+```
+
+**API Endpoints:**
+```bash
+# Get real-time progress for a generation task
+curl https://your-app.railway.app/admin/tasks/{task_id}/progress
+
+# Generate newsletter with progress tracking
+curl -X POST https://your-app.railway.app/admin/newsletters/generate \
+  -H "Content-Type: application/json" \
+  -d '{"newsletter_type": "DAILY", "force_generation": false}'
+```
+
+### Newsletter Quality Monitoring
+
+**Quality Metrics Tracked:**
+- Average quality score (target: >0.7)
+- Citation count per newsletter (target: >5)
+- Generation success/failure rates
+- Signal utilization effectiveness
+- Content uniqueness scores
+
+**Quality Alerts:**
+```python
+# Quality score alerts
+if avg_quality_score < 0.5:
+    severity = "CRITICAL"
+elif avg_quality_score < 0.7:
+    severity = "WARNING"
+
+# Citation count alerts
+if avg_citation_count < 3:
+    severity = "CRITICAL"
+elif avg_citation_count < 5:
+    severity = "WARNING"
+
+# Failure rate alerts
+if failure_rate > 0.5:
+    severity = "CRITICAL"
+elif failure_rate > 0.2:
+    severity = "WARNING"
+```
+
+### Enhanced Alert System
+
+**Newsletter Generation Alerts:**
+- `GENERATION_FAILURE`: Individual generation task failures
+- `LOW_QUALITY_SCORE`: Quality scores below acceptable thresholds
+- `LOW_CITATION_COUNT`: Insufficient article citations
+- `HIGH_FAILURE_RATE`: Elevated failure rates over time
+- `STUCK_GENERATION`: Tasks stuck in progress for >2 hours
+- `COST_THRESHOLD`: API costs exceeding budget limits
+
+**Alert Configuration:**
+```bash
+# Environment variables for alert thresholds
+ALERT_QUALITY_SCORE_WARNING=0.7
+ALERT_QUALITY_SCORE_CRITICAL=0.5
+ALERT_CITATION_COUNT_WARNING=5
+ALERT_CITATION_COUNT_CRITICAL=3
+ALERT_FAILURE_RATE_WARNING=0.2
+ALERT_FAILURE_RATE_CRITICAL=0.5
+ALERT_STUCK_GENERATION_HOURS=2
+```
+
+**Scheduled Alert Checking:**
+```python
+# Celery beat schedule - runs every 15 minutes
+"check-newsletter-alerts": {
+    "task": "crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task",
+    "schedule": crontab(minute="*/15"),
+    "options": {"priority": 8, "queue": "monitoring"}
+}
+```
+
+### Frontend Progress Visualization
+
+**Real-time Progress Components:**
+- `NewsletterGenerationProgress`: Live progress tracking with step indicators
+- `NewsletterGenerationComplete`: Success state with newsletter details
+- `NewsletterGenerationError`: Error handling with retry options
+
+**Progress Polling:**
+```typescript
+// Frontend polls for progress every 2 seconds
+const { data: progressData } = useQuery({
+  queryKey: ['newsletter-progress', taskId],
+  queryFn: () => apiClient.getGenerationProgress(taskId),
+  enabled: taskId !== null && generationState === 'generating',
+  refetchInterval: 2000,
+  retry: 3,
+});
+```
+
+**Quality Metrics Display:**
+- Stories selected count
+- Quality scores and confidence levels
+- Citation count and URL availability
+- Word count and readability metrics
+- Theme identification and coherence
+
+This enhanced monitoring system provides complete transparency into newsletter generation with proactive quality assurance and real-time user feedback.

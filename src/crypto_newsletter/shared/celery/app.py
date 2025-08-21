@@ -46,6 +46,9 @@ def create_celery_app() -> Celery:
             "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles": {
                 "queue": "maintenance"
             },
+            "crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task": {
+                "queue": "monitoring"
+            },
             "crypto_newsletter.newsletter.tasks.*": {"queue": "newsletter"},
             "crypto_newsletter.newsletter.batch.*": {"queue": "batch_processing"},
             "crypto_newsletter.newsletter.publishing.*": {"queue": "publishing"},
@@ -148,6 +151,20 @@ def create_celery_app() -> Celery:
                         "interval_start": 1800,  # 30 minutes
                         "interval_step": 1800,  # 30 minute increments
                         "interval_max": 3600,  # 1 hour max
+                    },
+                },
+            },
+            # Newsletter monitoring and alerting
+            "check-newsletter-alerts": {
+                "task": "crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task",
+                "schedule": crontab(minute="*/15"),  # Every 15 minutes
+                "options": {
+                    "priority": 8,
+                    "retry_policy": {
+                        "max_retries": 2,
+                        "interval_start": 300,  # 5 minutes
+                        "interval_step": 300,  # 5 minute increments
+                        "interval_max": 900,  # 15 minutes max
                     },
                 },
             },

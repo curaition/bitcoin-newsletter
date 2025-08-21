@@ -318,6 +318,74 @@ class NewsletterTaskMonitor:
                 "issues": ["Newsletter pipeline monitoring error"],
             }
 
+    async def get_newsletter_generation_progress_health(self) -> dict[str, Any]:
+        """
+        Check health of newsletter generation progress and quality metrics.
+
+        Returns:
+            Dict with generation progress health status
+        """
+        try:
+            from crypto_newsletter.shared.monitoring.metrics import MetricsCollector
+
+            collector = MetricsCollector()
+            generation_metrics = await collector.collect_newsletter_generation_metrics()
+
+            # Determine health status based on metrics
+            status = "healthy"
+            issues = []
+
+            # Check failure rate
+            if generation_metrics.get("failure_rate", 0) > 0.3:  # 30% failure rate
+                status = "unhealthy"
+                issues.append(
+                    f"High generation failure rate: {generation_metrics['failure_rate']:.1%}"
+                )
+            elif generation_metrics.get("failure_rate", 0) > 0.1:  # 10% failure rate
+                status = "warning"
+                issues.append(
+                    f"Elevated generation failure rate: {generation_metrics['failure_rate']:.1%}"
+                )
+
+            # Check quality score
+            if generation_metrics.get("avg_quality_score", 1.0) < 0.5:
+                status = "unhealthy"
+                issues.append(
+                    f"Low average quality score: {generation_metrics['avg_quality_score']:.2f}"
+                )
+            elif generation_metrics.get("avg_quality_score", 1.0) < 0.7:
+                if status != "unhealthy":
+                    status = "warning"
+                issues.append(
+                    f"Below-target quality score: {generation_metrics['avg_quality_score']:.2f}"
+                )
+
+            # Check citation count
+            if generation_metrics.get("avg_citation_count", 10) < 3:
+                if status != "unhealthy":
+                    status = "warning"
+                issues.append(
+                    f"Low average citation count: {generation_metrics['avg_citation_count']}"
+                )
+
+            return {
+                "status": status,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "issues": issues,
+                "metrics": generation_metrics,
+                "quality_alerts": generation_metrics.get("quality_alerts", []),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check generation progress health: {e}")
+            return {
+                "status": "unhealthy",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "issues": [f"Generation progress health check failed: {str(e)}"],
+                "metrics": {},
+                "quality_alerts": [],
+            }
+
 
 async def get_newsletter_health_status() -> dict[str, Any]:
     """
@@ -329,17 +397,20 @@ async def get_newsletter_health_status() -> dict[str, Any]:
     async with NewsletterTaskMonitor() as monitor:
         generation_status = await monitor.get_newsletter_generation_status()
         pipeline_status = await monitor.get_newsletter_pipeline_health()
+        progress_status = await monitor.get_newsletter_generation_progress_health()
 
         # Determine overall status
         overall_status = "healthy"
         if (
             generation_status["status"] == "unhealthy"
             or pipeline_status["status"] == "unhealthy"
+            or progress_status["status"] == "unhealthy"
         ):
             overall_status = "unhealthy"
         elif (
             generation_status["status"] == "warning"
             or pipeline_status["status"] == "warning"
+            or progress_status["status"] == "warning"
         ):
             overall_status = "warning"
 
@@ -349,5 +420,7 @@ async def get_newsletter_health_status() -> dict[str, Any]:
             "checks": {
                 "newsletter_generation": generation_status,
                 "newsletter_pipeline": pipeline_status,
+                "generation_progress": progress_status,
             },
+            "quality_alerts": progress_status.get("quality_alerts", []),
         }
