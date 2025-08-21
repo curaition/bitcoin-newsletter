@@ -96,7 +96,8 @@ export function ArticlesPage() {
   };
 
   const getAnalysisReadinessBadge = (article: any) => {
-    const contentLength = article.content_length || (article.body?.length || 0);
+    // Use body_length from database or calculate from body content
+    const contentLength = article.body_length || (article.body?.length || 0);
     const isReady = contentLength >= 2000;
 
     if (isReady) {

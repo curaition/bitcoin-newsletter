@@ -653,6 +653,26 @@ class NewsletterRepository:
         """Get draft newsletters."""
         return await self.get_newsletters_by_status("DRAFT", limit)
 
+    async def get_newsletters_by_date_range(self, start_date, end_date, status=None, limit=50):
+        """Get newsletters within a specific date range."""
+        query = (
+            select(Newsletter)
+            .where(
+                and_(
+                    Newsletter.generation_date >= start_date,
+                    Newsletter.generation_date <= end_date,
+                )
+            )
+            .order_by(desc(Newsletter.generation_date))
+            .limit(limit)
+        )
+
+        if status:
+            query = query.where(Newsletter.status == status)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
     async def get_newsletters_with_filters(
         self,
         limit: int = 50,
