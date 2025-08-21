@@ -367,13 +367,11 @@ def generate_newsletter_manual_task(
     logger.info(f"Manual newsletter generation triggered: {newsletter_type}")
 
     if newsletter_type.upper() == "DAILY":
-        return generate_daily_newsletter_task.apply(
-            kwargs={"force_generation": force_generation}
-        ).get()
+        # Call the task function directly instead of using .get()
+        return generate_daily_newsletter_task(force_generation=force_generation)
     elif newsletter_type.upper() == "WEEKLY":
-        return generate_weekly_newsletter_task.apply(
-            kwargs={"force_generation": force_generation}
-        ).get()
+        # Call the task function directly instead of using .get()
+        return generate_weekly_newsletter_task(force_generation=force_generation)
     else:
         return {
             "status": "failed",

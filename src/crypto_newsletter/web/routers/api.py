@@ -116,6 +116,7 @@ async def get_articles(
                     publisher_id=article.get("publisher_id"),
                     language=article.get("language"),
                     status=article.get("status", "ACTIVE"),
+                    body_length=article.get("body_length", 0),
                 )
                 for article in articles
             ]
@@ -235,6 +236,7 @@ async def get_analysis_ready_articles(
                     publisher_id=article.get("publisher_id"),
                     language=article.get("language"),
                     status=article.get("status", "ACTIVE"),
+                    body_length=article.get("body_length", 0),
                 )
                 for article in articles
             ]

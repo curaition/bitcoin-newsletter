@@ -296,6 +296,7 @@ class ArticleRepository:
                     "publisher_id": article.publisher_id,
                     "language": article.language,
                     "status": article.status,
+                    "body_length": len(article.body) if article.body else 0,
                 }
                 for article in articles
             ]
@@ -369,7 +370,7 @@ class ArticleRepository:
                     "publisher_id": article.publisher_id,
                     "language": article.language,
                     "status": article.status,
-                    "content_length": len(article.body) if article.body else 0,
+                    "body_length": len(article.body) if article.body else 0,
                     "analysis_ready": True,
                 }
                 for article in articles
@@ -653,7 +654,9 @@ class NewsletterRepository:
         """Get draft newsletters."""
         return await self.get_newsletters_by_status("DRAFT", limit)
 
-    async def get_newsletters_by_date_range(self, start_date, end_date, status=None, limit=50):
+    async def get_newsletters_by_date_range(
+        self, start_date, end_date, status=None, limit=50
+    ):
         """Get newsletters within a specific date range."""
         query = (
             select(Newsletter)

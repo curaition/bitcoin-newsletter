@@ -49,6 +49,7 @@ class ArticleResponse(BaseModel):
     publisher_id: Optional[int] = None
     language: Optional[str] = None
     status: str
+    body_length: Optional[int] = None
 
 
 class PublisherResponse(BaseModel):

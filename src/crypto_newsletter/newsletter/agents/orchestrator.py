@@ -19,6 +19,18 @@ class NewsletterOrchestrator:
         self.synthesis_agent = synthesis_agent
         self.writer_agent = newsletter_writer_agent
 
+    async def generate_newsletter(
+        self, articles: list[dict[str, Any]], newsletter_type: str = "DAILY"
+    ) -> dict[str, Any]:
+        """Generate newsletter - delegates to appropriate method based on type."""
+        if newsletter_type.upper() == "DAILY":
+            return await self.generate_daily_newsletter(articles, newsletter_type)
+        elif newsletter_type.upper() == "WEEKLY":
+            # For weekly, articles parameter should be daily newsletters
+            return await self.generate_weekly_newsletter(articles)
+        else:
+            raise ValueError(f"Unsupported newsletter type: {newsletter_type}")
+
     async def generate_daily_newsletter(
         self, articles: list[dict[str, Any]], newsletter_type: str = "DAILY"
     ) -> dict[str, Any]:
