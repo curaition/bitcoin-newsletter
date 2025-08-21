@@ -1,6 +1,5 @@
 """Newsletter generation Celery tasks."""
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -73,7 +72,7 @@ class NewsletterGenerationException(Exception):
     default_retry_delay=1800,  # 30 minutes
     queue="newsletter",
 )
-def generate_daily_newsletter_task(
+async def generate_daily_newsletter_task(
     self, force_generation: bool = False
 ) -> dict[str, Any]:
     """
@@ -228,7 +227,7 @@ def generate_daily_newsletter_task(
                 "generation_metadata": generation_metadata,
             }
 
-    return asyncio.run(_generate_daily_newsletter())
+    return await _generate_daily_newsletter()
 
 
 @celery_app.task(
@@ -238,7 +237,7 @@ def generate_daily_newsletter_task(
     default_retry_delay=1800,  # 30 minutes
     queue="newsletter",
 )
-def generate_weekly_newsletter_task(
+async def generate_weekly_newsletter_task(
     self, force_generation: bool = False
 ) -> dict[str, Any]:
     """
@@ -389,7 +388,7 @@ def generate_weekly_newsletter_task(
                 "generation_metadata": generation_metadata,
             }
 
-    return asyncio.run(_generate_weekly_newsletter())
+    return await _generate_weekly_newsletter()
 
 
 @celery_app.task(
@@ -399,7 +398,7 @@ def generate_weekly_newsletter_task(
     default_retry_delay=300,  # 5 minutes
     queue="newsletter",
 )
-def generate_newsletter_manual_task(
+async def generate_newsletter_manual_task(
     self, newsletter_type: str = "DAILY", force_generation: bool = True
 ) -> dict[str, Any]:
     """
@@ -416,10 +415,10 @@ def generate_newsletter_manual_task(
 
     if newsletter_type.upper() == "DAILY":
         # Call the task function directly instead of using .get()
-        return generate_daily_newsletter_task(force_generation=force_generation)
+        return await generate_daily_newsletter_task(self, force_generation=force_generation)
     elif newsletter_type.upper() == "WEEKLY":
         # Call the task function directly instead of using .get()
-        return generate_weekly_newsletter_task(force_generation=force_generation)
+        return await generate_weekly_newsletter_task(self, force_generation=force_generation)
     else:
         return {
             "status": "failed",

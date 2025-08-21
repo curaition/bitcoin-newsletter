@@ -1,10 +1,8 @@
 """Celery tasks for scheduled operations."""
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any, Optional
 
-from celery import Task
 from crypto_newsletter.core.ingestion import pipeline_health_check
 from crypto_newsletter.core.ingestion.pipeline import ArticleIngestionPipeline
 from crypto_newsletter.core.storage.repository import ArticleRepository
@@ -15,26 +13,13 @@ from crypto_newsletter.shared.database.connection import get_db_session
 from loguru import logger
 
 
-class AsyncTask(Task):
-    """Base task class for async operations."""
-
-    def __call__(self, *args, **kwargs):
-        """Execute async task in event loop."""
-        # Remove self from args since it's already bound
-        return asyncio.run(self.run_async(*args, **kwargs))
-
-    async def run_async(self, *args, **kwargs):
-        """Override this method in subclasses."""
-        raise NotImplementedError
-
-
 @celery_app.task(
     bind=True,
     name="crypto_newsletter.core.scheduling.tasks.ingest_articles",
     max_retries=3,
     default_retry_delay=300,  # 5 minutes
 )
-def ingest_articles(
+async def ingest_articles(
     self,
     limit: Optional[int] = 50,
     hours_back: int = 12,
@@ -105,7 +90,7 @@ def ingest_articles(
                 ).total_seconds(),
             }
 
-    return asyncio.run(_run_ingestion())
+    return await _run_ingestion()
 
 
 @celery_app.task(
@@ -113,7 +98,7 @@ def ingest_articles(
     name="crypto_newsletter.core.scheduling.tasks.health_check",
     max_retries=1,
 )
-def health_check(self) -> dict[str, Any]:
+async def health_check(self) -> dict[str, Any]:
     """
     Scheduled health check task including Redis connection monitoring.
 
@@ -170,7 +155,7 @@ def health_check(self) -> dict[str, Any]:
                 "error": str(exc),
             }
 
-    return asyncio.run(_run_health_check())
+    return await _run_health_check()
 
 
 @celery_app.task(
@@ -178,7 +163,7 @@ def health_check(self) -> dict[str, Any]:
     name="crypto_newsletter.core.scheduling.tasks.cleanup_old_articles",
     max_retries=2,
 )
-def cleanup_old_articles(
+async def cleanup_old_articles(
     self,
     days_to_keep: int = 30,
     dry_run: bool = False,
@@ -269,14 +254,14 @@ def cleanup_old_articles(
                 else None,
             }
 
-    return asyncio.run(_run_cleanup())
+    return await _run_cleanup()
 
 
 @celery_app.task(
     name="crypto_newsletter.core.scheduling.tasks.manual_ingest",
     max_retries=1,
 )
-def manual_ingest(
+async def manual_ingest(
     limit: Optional[int] = None,
     hours_back: int = 24,
     categories: Optional[list] = None,
@@ -301,7 +286,7 @@ def manual_ingest(
             categories=categories,
         )
 
-    return asyncio.run(_run_ingestion())
+    return await _run_ingestion()
 
 
 # Task monitoring utilities
