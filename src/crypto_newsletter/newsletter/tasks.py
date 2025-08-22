@@ -88,7 +88,9 @@ def generate_newsletter_manual_task_enhanced(
 
     async def _generate_newsletter_enhanced():
         """Async newsletter generation with progress tracking."""
-        from crypto_newsletter.newsletter.services.progress_tracker import ProgressTracker
+        from crypto_newsletter.newsletter.services.progress_tracker import (
+            ProgressTracker,
+        )
 
         task_id = self.request.id
 
@@ -120,12 +122,16 @@ def generate_newsletter_manual_task_enhanced(
                     # Check if daily newsletter already exists for today
                     if not force_generation:
                         today = datetime.now().date()
-                        existing = (
-                            await newsletter_repo.get_newsletter_by_date_and_type(
-                                today, "DAILY"
+                        existing_newsletters = (
+                            await newsletter_repo.get_newsletters_with_filters(
+                                limit=1,
+                                newsletter_type="DAILY",
+                                start_date=today.isoformat(),
+                                end_date=today.isoformat(),
                             )
                         )
-                        if existing:
+                        if existing_newsletters:
+                            existing = existing_newsletters[0]
                             logger.info(f"Daily newsletter already exists for {today}")
                             return {
                                 "success": True,
