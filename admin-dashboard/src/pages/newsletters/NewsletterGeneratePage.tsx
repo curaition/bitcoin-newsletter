@@ -40,6 +40,7 @@ export function NewsletterGeneratePage() {
   const [forceGeneration, setForceGeneration] = useState(false);
   const [generationState, setGenerationState] = useState<'idle' | 'generating' | 'complete' | 'error'>('idle');
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [generationResult, setGenerationResult] = useState<any>(null);
 
   // Newsletter generation mutation
   const generateMutation = useGenerateNewsletter();
@@ -61,11 +62,18 @@ export function NewsletterGeneratePage() {
     if (progressData) {
       if (progressData.status === 'complete') {
         setGenerationState('complete');
+        // Set the generation result for the completion display
+        setGenerationResult({
+          task_id: taskId,
+          newsletter_type: selectedType,
+          status: 'complete',
+          force_generation: forceGeneration
+        });
       } else if (progressData.status === 'failed') {
         setGenerationState('error');
       }
     }
-  }, [progressData]);
+  }, [progressData, taskId, selectedType, forceGeneration]);
 
   const handleGenerate = async () => {
     try {
