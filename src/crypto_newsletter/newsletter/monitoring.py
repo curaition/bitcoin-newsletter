@@ -20,17 +20,19 @@ class NewsletterTaskMonitor:
         """Initialize newsletter task monitor."""
         self.db = db_session
         self._should_close_db = db_session is None
+        self.db_session_manager = None
 
     async def __aenter__(self):
         """Async context manager entry."""
         if self.db is None:
-            self.db = await get_db_session().__aenter__()
+            self.db_session_manager = get_db_session()
+            self.db = await self.db_session_manager.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        if self._should_close_db and self.db:
-            await self.db.close()
+        if self._should_close_db and self.db_session_manager:
+            await self.db_session_manager.__aexit__(exc_type, exc_val, exc_tb)
 
     async def get_newsletter_generation_status(self) -> dict[str, Any]:
         """
