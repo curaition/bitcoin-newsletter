@@ -2,17 +2,15 @@
 
 import asyncio
 import logging
-from datetime import datetime
 from typing import Any
 
 from crypto_newsletter.shared.celery.app import celery_app
 from crypto_newsletter.shared.database.connection import (
     get_db_session,
-    get_sync_db_session
+    get_sync_db_session,
 )
 from crypto_newsletter.shared.models import Article, ArticleAnalysis
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 from .agents.orchestrator import orchestrator
 from .agents.settings import analysis_settings
@@ -22,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 async def analyze_article_direct(
-    article_id: int,
-    db: AsyncSession,
-    cost_tracker: CostTracker
+    article_id: int, db: AsyncSession, cost_tracker: CostTracker
 ) -> dict[str, Any]:
     """
     Direct async analysis function that bypasses Celery task wrapper.
@@ -125,7 +121,7 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                 return {
                     "success": False,
                     "article_id": article_id,
-                    "error": f"Article {article_id} not found"
+                    "error": f"Article {article_id} not found",
                 }
 
             # Check if article meets minimum requirements
@@ -134,13 +130,15 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                 return {
                     "success": False,
                     "article_id": article_id,
-                    "error": "Article too short for analysis"
+                    "error": "Article too short for analysis",
                 }
 
             # Check if analysis already exists
-            existing_analysis = db.query(ArticleAnalysis).filter(
-                ArticleAnalysis.article_id == article_id
-            ).first()
+            existing_analysis = (
+                db.query(ArticleAnalysis)
+                .filter(ArticleAnalysis.article_id == article_id)
+                .first()
+            )
 
             if existing_analysis:
                 logger.info(f"Analysis already exists for article {article_id}")
@@ -149,7 +147,7 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     "article_id": article_id,
                     "analysis_id": existing_analysis.id,
                     "skipped": True,
-                    "reason": "Analysis already exists"
+                    "reason": "Analysis already exists",
                 }
 
             # Run async analysis within the existing event loop context
@@ -160,11 +158,15 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
             async def run_analysis():
                 # Create async database session for the orchestrator
                 from crypto_newsletter.shared.database.connection import get_db_manager
+
                 async_db_manager = get_db_manager()
 
                 async with async_db_manager.get_session() as async_session:
                     # Create dependencies for the orchestrator
-                    from crypto_newsletter.analysis.dependencies import AnalysisDependencies
+                    from crypto_newsletter.analysis.dependencies import (
+                        AnalysisDependencies,
+                    )
+
                     deps = AnalysisDependencies(
                         db_session=async_session,
                         cost_tracker=cost_tracker,
@@ -186,7 +188,6 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
             # Since we're in an AsyncIO pool, we can await the coroutine directly
             # by making this function async and calling it properly
             import concurrent.futures
-            import threading
 
             # Run the async function in a separate thread with proper cleanup
             def run_in_thread():
@@ -205,8 +206,12 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     # Wait for any pending tasks to complete
                     pending_tasks = asyncio.all_tasks(new_loop)
                     if pending_tasks:
-                        logger.debug(f"Waiting for {len(pending_tasks)} pending tasks to complete")
-                        new_loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                        logger.debug(
+                            f"Waiting for {len(pending_tasks)} pending tasks to complete"
+                        )
+                        new_loop.run_until_complete(
+                            asyncio.gather(*pending_tasks, return_exceptions=True)
+                        )
 
                         # Wait a bit more after task completion
                         new_loop.run_until_complete(asyncio.sleep(0.1))
@@ -224,7 +229,9 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                         # Cancel any remaining tasks
                         pending_tasks = asyncio.all_tasks(new_loop)
                         if pending_tasks:
-                            logger.debug(f"Cancelling {len(pending_tasks)} remaining tasks")
+                            logger.debug(
+                                f"Cancelling {len(pending_tasks)} remaining tasks"
+                            )
                             for task in pending_tasks:
                                 task.cancel()
 
@@ -232,8 +239,10 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                             try:
                                 new_loop.run_until_complete(
                                     asyncio.wait_for(
-                                        asyncio.gather(*pending_tasks, return_exceptions=True),
-                                        timeout=2.0  # 2 second timeout for cleanup
+                                        asyncio.gather(
+                                            *pending_tasks, return_exceptions=True
+                                        ),
+                                        timeout=2.0,  # 2 second timeout for cleanup
                                     )
                                 )
                             except asyncio.TimeoutError:
@@ -266,12 +275,14 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                     return {
                         "success": False,
                         "article_id": article_id,
-                        "error": "Analysis timed out after 5 minutes"
+                        "error": "Analysis timed out after 5 minutes",
                     }
 
             # Check if analysis was successful
             if not analysis_result.get("success", False):
-                logger.error(f"Analysis failed for article {article_id}: {analysis_result.get('error', 'Unknown error')}")
+                logger.error(
+                    f"Analysis failed for article {article_id}: {analysis_result.get('error', 'Unknown error')}"
+                )
                 return analysis_result
 
             # The orchestrator already stored the results in the database
@@ -281,16 +292,12 @@ def analyze_article_sync(article_id: int, cost_tracker: CostTracker) -> dict[str
                 "success": True,
                 "article_id": article_id,
                 "analysis_id": analysis_result.get("analysis_record_id"),
-                "processing_cost": analysis_result.get("costs", {}).get("total", 0.0)
+                "processing_cost": analysis_result.get("costs", {}).get("total", 0.0),
             }
 
     except Exception as e:
         logger.error(f"Sync analysis failed for article {article_id}: {str(e)}")
-        return {
-            "success": False,
-            "article_id": article_id,
-            "error": str(e)
-        }
+        return {"success": False, "article_id": article_id, "error": str(e)}
 
 
 @celery_app.task(
@@ -407,7 +414,6 @@ def _run_analysis_sync_wrapper(article_id: int) -> dict[str, Any]:
     This function handles the AsyncIO/Celery integration properly.
     """
     import concurrent.futures
-    import threading
 
     def run_in_new_thread():
         """Run the async analysis in a completely new thread with its own event loop."""
@@ -427,8 +433,13 @@ def _run_analysis_sync_wrapper(article_id: int) -> dict[str, Any]:
                             raise ValueError(f"Article {article_id} not found")
 
                         # Check if article meets minimum requirements
-                        if len(article.body or "") < analysis_settings.min_content_length:
-                            logger.warning(f"Article {article_id} too short for analysis")
+                        if (
+                            len(article.body or "")
+                            < analysis_settings.min_content_length
+                        ):
+                            logger.warning(
+                                f"Article {article_id} too short for analysis"
+                            )
                             return {
                                 "success": False,
                                 "article_id": article_id,
@@ -452,7 +463,9 @@ def _run_analysis_sync_wrapper(article_id: int) -> dict[str, Any]:
                         if not deps.cost_tracker.can_afford(
                             analysis_settings.max_cost_per_article
                         ):
-                            logger.warning(f"Insufficient budget for article {article_id}")
+                            logger.warning(
+                                f"Insufficient budget for article {article_id}"
+                            )
                             return {
                                 "success": False,
                                 "article_id": article_id,
@@ -484,7 +497,9 @@ def _run_analysis_sync_wrapper(article_id: int) -> dict[str, Any]:
 
                     except Exception as e:
                         await db.rollback()
-                        logger.error(f"Analysis failed for article {article_id}: {str(e)}")
+                        logger.error(
+                            f"Analysis failed for article {article_id}: {str(e)}"
+                        )
                         raise
 
             return loop.run_until_complete(_run_analysis_internal())
@@ -529,7 +544,9 @@ async def _store_analysis_results(
         else [],
         validation_status="COMPLETED" if signal_validation else "PENDING",
         # Map cost and processing data to correct database fields
-        processing_time_ms=int(result.get("processing_metadata", {}).get("processing_time_ms", 0)),
+        processing_time_ms=int(
+            result.get("processing_metadata", {}).get("processing_time_ms", 0)
+        ),
         token_usage=result.get("usage", {}).get("total_tokens", 0),
         cost_usd=result["costs"]["total"],
     )
@@ -537,5 +554,97 @@ async def _store_analysis_results(
     db.add(analysis)
 
 
-# Note: analyze_recent_articles_task removed - batch processing is handled
-# by the dedicated batch processing system in crypto_newsletter.newsletter.batch
+@celery_app.task(
+    bind=True,
+    name="crypto_newsletter.analysis.tasks.analyze_recent_articles",
+    max_retries=2,
+    default_retry_delay=300,  # 5 minutes
+    queue="analysis",
+)
+def analyze_recent_articles_task(self, max_articles: int = 10) -> dict[str, Any]:
+    """
+    Analyze recent unanalyzed articles (scheduled task).
+
+    This task is called by the Celery Beat scheduler every 6 hours to ensure
+    new articles get analyzed for newsletter generation. It wraps the existing
+    batch processing system with a focus on recent articles.
+
+    Args:
+        max_articles: Maximum number of recent articles to analyze (default: 10)
+
+    Returns:
+        Dict with analysis results and metadata
+    """
+    try:
+        from crypto_newsletter.analysis.scheduling import analysis_scheduler
+        from crypto_newsletter.newsletter.batch.tasks import initiate_batch_processing
+
+        logger.info(f"Starting intelligent scheduled analysis (max: {max_articles})")
+
+        # Use intelligent scheduling decision
+        scheduling_decision = analysis_scheduler.should_analyze_now()
+
+        logger.info(f"Scheduling decision: {scheduling_decision['reasoning']}")
+
+        if not scheduling_decision["should_analyze"]:
+            return {
+                "success": True,
+                "status": "skipped",
+                "message": scheduling_decision["reasoning"],
+                "scheduling_decision": scheduling_decision,
+            }
+
+        # Use recommended article count from scheduler
+        recommended_count = min(
+            scheduling_decision["recommended_articles"], max_articles
+        )
+
+        logger.info(f"Proceeding with analysis of up to {recommended_count} articles")
+
+        # Get content status for reporting
+        content_status = scheduling_decision.get("content_status", {})
+        recent_unanalyzed_count = content_status.get("recent_unanalyzed", 0)
+
+        # Trigger batch processing (it will handle article selection and budget limits)
+        logger.info("Triggering batch processing for article analysis")
+        batch_result = initiate_batch_processing.delay(force_processing=False)
+
+        # Wait a short time for the batch processing to start
+        import time
+
+        time.sleep(2)
+
+        # Get the result (this will be the initiation result, not the full processing result)
+        try:
+            initiation_result = batch_result.get(
+                timeout=30
+            )  # 30 second timeout for initiation
+        except Exception as e:
+            logger.warning(f"Could not get batch processing initiation result: {e}")
+            initiation_result = {
+                "status": "initiated",
+                "message": "Batch processing started but result unavailable",
+            }
+
+        return {
+            "success": True,
+            "status": "batch_initiated",
+            "recent_unanalyzed_count": recent_unanalyzed_count,
+            "recommended_articles": recommended_count,
+            "batch_processing_result": initiation_result,
+            "scheduling_decision": scheduling_decision,
+            "message": f"Intelligent analysis initiated for up to {recommended_count} articles",
+        }
+
+    except Exception as e:
+        logger.error(f"Scheduled analysis failed: {str(e)}")
+        # Retry the task if it's a temporary failure
+        if "budget" not in str(e).lower() and "no articles" not in str(e).lower():
+            raise self.retry(exc=e)
+
+        return {
+            "success": False,
+            "status": "error",
+            "error": str(e),
+            "message": f"Scheduled analysis failed: {str(e)}",
+        }

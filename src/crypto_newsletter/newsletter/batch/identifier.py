@@ -226,9 +226,7 @@ class BatchArticleIdentifier:
             return False
 
     # Synchronous versions for Celery tasks
-    def get_analyzable_articles_sync(
-        self, db: Session, limit: int = 200
-    ) -> list[int]:
+    def get_analyzable_articles_sync(self, db: Session, limit: int = 200) -> list[int]:
         """
         Get article IDs for batch processing (synchronous version).
 
@@ -434,3 +432,171 @@ class BatchArticleIdentifier:
             return result.fetchone() is not None
         except Exception:
             return False
+
+    def get_recent_analyzable_articles_sync(
+        self, db: Session, hours_back: int = 24, limit: int = 50
+    ) -> list[int]:
+        """
+        Get recent unanalyzed article IDs for priority processing.
+
+        This method prioritizes articles from the last N hours to ensure
+        timely analysis for newsletter generation.
+
+        Args:
+            db: Database session
+            hours_back: How many hours back to look for articles (default: 24)
+            limit: Maximum number of articles to return (default: 50)
+
+        Returns:
+            List of recent article IDs suitable for analysis
+        """
+        try:
+            query = text(
+                """
+                SELECT a.id
+                FROM articles a
+                LEFT JOIN article_analyses aa ON a.id = aa.article_id
+                WHERE aa.id IS NULL  -- Not yet analyzed
+                  AND LENGTH(a.body) > :min_length  -- Substantial content
+                  AND a.body IS NOT NULL
+                  AND a.body != ''
+                  AND a.status = 'ACTIVE'  -- Only active articles
+                  AND a.created_at >= NOW() - (:hours_back || ' hours')::INTERVAL  -- Recent articles
+                ORDER BY a.created_at DESC, a.published_on DESC
+                LIMIT :limit
+                """
+            )
+
+            result = db.execute(
+                query,
+                {
+                    "min_length": self.min_content_length,
+                    "hours_back": hours_back,
+                    "limit": limit,
+                },
+            )
+
+            article_ids = [row[0] for row in result.fetchall()]
+
+            logger.info(
+                f"Found {len(article_ids)} recent analyzable articles "
+                f"(last {hours_back}h, min_length: {self.min_content_length})"
+            )
+
+            return article_ids
+
+        except Exception as e:
+            logger.error(f"Failed to get recent analyzable articles: {str(e)}")
+            return []
+
+    def get_priority_analyzable_articles_sync(
+        self, db: Session, limit: int = 200, prioritize_recent: bool = True
+    ) -> list[int]:
+        """
+        Get article IDs with intelligent prioritization for batch processing.
+
+        This method implements smart article selection:
+        1. Recent articles (last 24 hours) get highest priority
+        2. Quality publishers get preference
+        3. Longer articles get preference (more content to analyze)
+
+        Args:
+            db: Database session
+            limit: Maximum number of articles to return
+            prioritize_recent: Whether to prioritize recent articles
+
+        Returns:
+            List of prioritized article IDs for analysis
+        """
+        try:
+            # Quality publishers that typically have better content
+            quality_publishers = [
+                "CoinDesk",
+                "NewsBTC",
+                "Crypto Potato",
+                "CoinTelegraph",
+            ]
+
+            if prioritize_recent:
+                # First try to get recent articles (last 24 hours)
+                recent_articles = self.get_recent_analyzable_articles_sync(
+                    db, hours_back=24, limit=min(limit, 30)
+                )
+
+                if len(recent_articles) >= 10:  # If we have enough recent articles
+                    logger.info(
+                        f"Using {len(recent_articles)} recent articles for priority processing"
+                    )
+                    return recent_articles
+
+                # If not enough recent articles, supplement with older ones
+                remaining_limit = limit - len(recent_articles)
+                if remaining_limit > 0:
+                    older_articles = self._get_older_quality_articles_sync(
+                        db, limit=remaining_limit, exclude_ids=recent_articles
+                    )
+                    combined = recent_articles + older_articles
+                    logger.info(
+                        f"Combined {len(recent_articles)} recent + {len(older_articles)} "
+                        f"older articles for processing"
+                    )
+                    return combined
+
+                return recent_articles
+            else:
+                # Use the standard method for non-priority processing
+                return self.get_analyzable_articles_sync(db, limit=limit)
+
+        except Exception as e:
+            logger.error(f"Failed to get priority analyzable articles: {str(e)}")
+            # Fallback to standard method
+            return self.get_analyzable_articles_sync(db, limit=limit)
+
+    def _get_older_quality_articles_sync(
+        self, db: Session, limit: int = 100, exclude_ids: list[int] = None
+    ) -> list[int]:
+        """Get older articles with quality prioritization."""
+        try:
+            exclude_clause = ""
+            params = {"min_length": self.min_content_length, "limit": limit}
+
+            if exclude_ids:
+                exclude_placeholder = ",".join(
+                    [f":exclude_{i}" for i in range(len(exclude_ids))]
+                )
+                exclude_clause = f"AND a.id NOT IN ({exclude_placeholder})"
+                for i, article_id in enumerate(exclude_ids):
+                    params[f"exclude_{i}"] = article_id
+
+            query = text(
+                f"""
+                SELECT a.id
+                FROM articles a
+                LEFT JOIN article_analyses aa ON a.id = aa.article_id
+                LEFT JOIN publishers p ON a.publisher_id = p.id
+                WHERE aa.id IS NULL  -- Not yet analyzed
+                  AND LENGTH(a.body) > :min_length  -- Substantial content
+                  AND a.body IS NOT NULL
+                  AND a.body != ''
+                  AND a.status = 'ACTIVE'  -- Only active articles
+                  {exclude_clause}
+                ORDER BY
+                  CASE WHEN p.name IN ('CoinDesk', 'NewsBTC', 'Crypto Potato', 'CoinTelegraph')
+                       THEN 1 ELSE 2 END,  -- Quality publishers first
+                  LENGTH(a.body) DESC,  -- Longer articles preferred
+                  a.published_on DESC   -- Newer articles preferred
+                LIMIT :limit
+                """
+            )
+
+            result = db.execute(query, params)
+            article_ids = [row[0] for row in result.fetchall()]
+
+            logger.info(
+                f"Found {len(article_ids)} older quality articles for supplemental processing"
+            )
+            return article_ids
+
+        except Exception as e:
+            logger.error(f"Failed to get older quality articles: {str(e)}")
+            return []

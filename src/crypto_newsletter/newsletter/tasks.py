@@ -140,8 +140,8 @@ def generate_newsletter_manual_task_enhanced(
                                 "skipped": True,
                             }
 
-                    # Get articles from last 24 hours with analysis
-                    cutoff_time = datetime.now() - timedelta(hours=24)
+                    # Get articles from last 7 days with analysis (temporary fix for testing)
+                    cutoff_time = datetime.now() - timedelta(days=7)
                     articles = await article_repo.get_articles_with_analysis_since(
                         cutoff_time, min_signal_strength=0.0
                     )
