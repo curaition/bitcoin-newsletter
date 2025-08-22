@@ -168,7 +168,7 @@ class LoggingConfig:
             "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
             "{level: <8} | "
             "{name}:{function}:{line} | "
-            "{extra[service]:{self.settings.service_type}} | "
+            f"{self.settings.service_type or 'unknown'} | "
             "{message}"
         )
     
