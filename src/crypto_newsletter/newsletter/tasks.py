@@ -143,7 +143,7 @@ def generate_newsletter_manual_task_enhanced(
                     # Get articles from last 24 hours with analysis
                     cutoff_time = datetime.now() - timedelta(hours=24)
                     articles = await article_repo.get_articles_with_analysis_since(
-                        cutoff_time, min_word_count=2000
+                        cutoff_time, min_signal_strength=0.0
                     )
 
                     if len(articles) < 10:
