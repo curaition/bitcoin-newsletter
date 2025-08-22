@@ -14,17 +14,19 @@ class ProgressTracker:
     """Service for tracking newsletter generation progress."""
 
     def __init__(self):
+        self.db_session_manager = None
         self.db: Optional[AsyncSession] = None
 
     async def __aenter__(self):
         """Async context manager entry."""
-        self.db = get_db_session()
+        self.db_session_manager = get_db_session()
+        self.db = await self.db_session_manager.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        if self.db:
-            await self.db.close()
+        if self.db_session_manager:
+            await self.db_session_manager.__aexit__(exc_type, exc_val, exc_tb)
 
     async def initialize_progress(
         self, task_id: str, articles_count: int, estimated_completion: datetime
