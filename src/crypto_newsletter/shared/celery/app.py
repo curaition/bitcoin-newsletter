@@ -1,6 +1,7 @@
 """Celery application configuration and setup."""
 
 # Essential imports for Railway compatibility
+# Updated: 2025-08-22 - Fixed cache corruption issue
 
 from celery import Celery
 from celery.schedules import crontab
