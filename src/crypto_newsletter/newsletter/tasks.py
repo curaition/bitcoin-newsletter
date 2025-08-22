@@ -88,12 +88,29 @@ def generate_newsletter_manual_task_enhanced(
 
     async def _generate_newsletter_enhanced():
         """Async newsletter generation with progress tracking."""
+        from crypto_newsletter.newsletter.services.progress_tracker import ProgressTracker
+
+        task_id = self.request.id
+
+        # Initialize progress tracking immediately to avoid 404 errors
+        async with ProgressTracker() as progress_tracker:
+            try:
+                await progress_tracker.initialize_progress(
+                    task_id=task_id,
+                    articles_count=0,  # Will be updated once we know the count
+                    estimated_completion=datetime.utcnow() + timedelta(minutes=5),
+                )
+                logger.info(f"Initialized progress tracking for task {task_id}")
+            except Exception as init_error:
+                logger.error(f"Failed to initialize progress tracking: {init_error}")
+                # Continue anyway, but progress tracking won't work
+
         try:
             logger.info(f"Starting enhanced {newsletter_type} newsletter generation")
 
             # Initialize enhanced orchestrator with task ID
             orchestrator = ProgressAwareNewsletterOrchestrator()
-            orchestrator.set_task_id(self.request.id)
+            orchestrator.set_task_id(task_id)
 
             async with get_db_session() as db:
                 article_repo = ArticleRepository(db)
@@ -152,6 +169,15 @@ def generate_newsletter_manual_task_enhanced(
                     raise ValueError(f"Invalid newsletter type: {newsletter_type}")
 
         except Exception as e:
+            # Mark progress as failed if anything goes wrong
+            try:
+                async with ProgressTracker() as progress_tracker:
+                    await progress_tracker.mark_failed(
+                        task_id, str(e), {"error_type": type(e).__name__}
+                    )
+            except Exception as progress_error:
+                logger.error(f"Failed to mark progress as failed: {progress_error}")
+
             logger.error(f"Enhanced newsletter generation failed: {e}", exc_info=True)
             raise
 
