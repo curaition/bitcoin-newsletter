@@ -1,6 +1,6 @@
 """Progress tracking service for newsletter generation."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from crypto_newsletter.newsletter.models.progress import NewsletterGenerationProgress
@@ -33,24 +33,51 @@ class ProgressTracker:
     ) -> None:
         """Initialize progress tracking for a new generation task."""
         try:
-            progress = NewsletterGenerationProgress(
-                task_id=task_id,
-                current_step="selection",
-                step_progress=0.0,
-                overall_progress=0.0,
-                articles_being_processed=[],
-                estimated_completion=estimated_completion,
-                step_details={
-                    "articles_count": articles_count,
-                    "status": "Initializing newsletter generation",
-                    "step_description": "Preparing to analyze articles and select stories",
-                },
-                status="in_progress",
+            # Check if progress record already exists (for retries)
+            stmt = select(NewsletterGenerationProgress).where(
+                NewsletterGenerationProgress.task_id == task_id
             )
+            result = await self.db.execute(stmt)
+            existing_progress = result.scalar_one_or_none()
 
-            self.db.add(progress)
+            if existing_progress:
+                # Reset existing record for retry
+                logger.info(f"Resetting existing progress record for task {task_id}")
+                existing_progress.current_step = "selection"
+                existing_progress.step_progress = 0.0
+                existing_progress.overall_progress = 0.0
+                existing_progress.articles_being_processed = []
+                existing_progress.estimated_completion = estimated_completion
+                existing_progress.step_details = {
+                    "articles_count": articles_count,
+                    "status": "Initializing newsletter generation (retry)",
+                    "step_description": "Preparing to analyze articles and select stories",
+                }
+                existing_progress.intermediate_results = {}
+                existing_progress.quality_metrics = {}
+                existing_progress.status = "in_progress"
+                existing_progress.updated_at = datetime.utcnow()
+            else:
+                # Create new progress record
+                logger.info(f"Creating new progress record for task {task_id}")
+                progress = NewsletterGenerationProgress(
+                    task_id=task_id,
+                    current_step="selection",
+                    step_progress=0.0,
+                    overall_progress=0.0,
+                    articles_being_processed=[],
+                    estimated_completion=estimated_completion,
+                    step_details={
+                        "articles_count": articles_count,
+                        "status": "Initializing newsletter generation",
+                        "step_description": "Preparing to analyze articles and select stories",
+                    },
+                    status="in_progress",
+                )
+                self.db.add(progress)
+
             await self.db.commit()
-            logger.info(f"Initialized progress tracking for task {task_id}")
+            logger.info(f"Successfully initialized progress tracking for task {task_id}")
 
         except Exception as e:
             logger.error(f"Failed to initialize progress for task {task_id}: {e}")
@@ -194,3 +221,60 @@ class ProgressTracker:
         """Get current step for a task (synchronous helper)."""
         # This is a helper method for error reporting
         return "unknown"
+
+    async def cleanup_old_progress_records(self, hours_old: int = 24) -> int:
+        """
+        Clean up old progress records to prevent database bloat.
+
+        Args:
+            hours_old: Remove records older than this many hours
+
+        Returns:
+            Number of records cleaned up
+        """
+        try:
+            from sqlalchemy import delete
+
+            cutoff_time = datetime.utcnow() - timedelta(hours=hours_old)
+
+            # Delete old completed, failed, or stuck in_progress records
+            stmt = delete(NewsletterGenerationProgress).where(
+                (NewsletterGenerationProgress.created_at < cutoff_time) &
+                (
+                    (NewsletterGenerationProgress.status == "complete") |
+                    (NewsletterGenerationProgress.status == "failed") |
+                    (
+                        (NewsletterGenerationProgress.status == "in_progress") &
+                        (NewsletterGenerationProgress.updated_at < cutoff_time)
+                    )
+                )
+            )
+
+            result = await self.db.execute(stmt)
+            await self.db.commit()
+
+            cleaned_count = result.rowcount
+            logger.info(f"Cleaned up {cleaned_count} old progress records (older than {hours_old}h)")
+
+            return cleaned_count
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup old progress records: {e}")
+            await self.db.rollback()
+            raise
+
+    @classmethod
+    async def cleanup_old_records_standalone(cls, hours_old: int = 24) -> int:
+        """
+        Standalone method to cleanup old progress records without existing session.
+
+        Args:
+            hours_old: Remove records older than this many hours
+
+        Returns:
+            Number of records cleaned up
+        """
+        async with get_db_session() as db:
+            tracker = cls()
+            tracker.db = db
+            return await tracker.cleanup_old_progress_records(hours_old)

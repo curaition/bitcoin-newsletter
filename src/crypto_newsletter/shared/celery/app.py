@@ -171,6 +171,12 @@ def create_celery_app() -> Celery:
                     },
                 },
             },
+            # Progress tracking cleanup
+            "cleanup-newsletter-progress": {
+                "task": "crypto_newsletter.newsletter.tasks.cleanup_progress_records_task",
+                "schedule": crontab(minute=0, hour=3),  # Daily at 3 AM UTC
+                "options": {"priority": 3},
+            },
             # Note: analyze-recent-articles task removed - batch processing is now handled
             # by the dedicated batch processing system via manual/API triggers
         },

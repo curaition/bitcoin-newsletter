@@ -191,7 +191,7 @@ def generate_newsletter_manual_task_enhanced(
     return asyncio.run(_generate_newsletter_enhanced())
 
 
-@celery_app.task(bind=True, name="check_newsletter_alerts_task")
+@celery_app.task(bind=True, name="crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task")
 def check_newsletter_alerts_task(self):
     """Periodic task to check for newsletter generation alerts."""
     import asyncio
@@ -226,6 +226,47 @@ def check_newsletter_alerts_task(self):
 
     # Run the async function
     return asyncio.run(_check_alerts())
+
+
+@celery_app.task(bind=True, name="crypto_newsletter.newsletter.tasks.cleanup_progress_records_task")
+def cleanup_progress_records_task(self):
+    """Periodic task to cleanup old newsletter generation progress records."""
+    import asyncio
+
+    async def _cleanup_progress():
+        """Async progress cleanup."""
+        try:
+            from crypto_newsletter.newsletter.services.progress_tracker import (
+                NewsletterProgressTracker,
+            )
+
+            logger.info("Starting newsletter progress cleanup")
+
+            # Clean up records older than 24 hours
+            cleaned_count = await NewsletterProgressTracker.cleanup_old_records_standalone(
+                hours_old=24
+            )
+
+            result = {
+                "success": True,
+                "cleaned_records": cleaned_count,
+                "message": f"Successfully cleaned up {cleaned_count} old progress records",
+            }
+
+            logger.info(f"Newsletter progress cleanup completed: {result}")
+            return result
+
+        except Exception as e:
+            error_msg = f"Newsletter progress cleanup failed: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return {
+                "success": False,
+                "error": error_msg,
+                "cleaned_records": 0,
+            }
+
+    # Run the async function
+    return asyncio.run(_cleanup_progress())
 
 
 @celery_app.task(
