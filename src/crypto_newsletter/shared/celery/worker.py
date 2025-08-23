@@ -93,7 +93,7 @@ def setup_signal_handlers():
 def start_worker(
     loglevel: str = "INFO",
     concurrency: int = 10,  # Moderate concurrency for AsyncIO pool
-    queues: str = "default,ingestion,monitoring,maintenance,batch_processing,newsletter,publishing",
+    queues: str = "default,ingestion,monitoring,maintenance,analysis,batch_processing,newsletter,publishing",
     **kwargs,
 ) -> None:
     """

@@ -47,6 +47,7 @@ def create_celery_app() -> Celery:
             "crypto_newsletter.core.scheduling.tasks.cleanup_old_articles": {
                 "queue": "maintenance"
             },
+            "crypto_newsletter.analysis.tasks.*": {"queue": "analysis"},
             "crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task": {
                 "queue": "monitoring"
             },
@@ -64,6 +65,7 @@ def create_celery_app() -> Celery:
             Queue("ingestion", routing_key="ingestion"),
             Queue("monitoring", routing_key="monitoring"),
             Queue("maintenance", routing_key="maintenance"),
+            Queue("analysis", routing_key="analysis"),
             Queue("newsletter", routing_key="newsletter"),
             Queue("batch_processing", routing_key="batch_processing"),
             Queue("publishing", routing_key="publishing"),
