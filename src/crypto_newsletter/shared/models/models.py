@@ -6,7 +6,6 @@ from typing import Optional
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
-    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -339,7 +338,9 @@ class Newsletter(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    generation_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    generation_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     status: Mapped[str] = mapped_column(String(20), default="DRAFT", nullable=False)
     quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     agent_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

@@ -49,7 +49,7 @@ class NewsletterStorage:
                 title=newsletter_content.title,
                 content=self._format_newsletter_content(newsletter_content),
                 summary="\n".join(newsletter_content.executive_summary),
-                generation_date=date.today(),
+                generation_date=datetime.now(),  # Use current datetime
                 status="DRAFT",
                 quality_score=newsletter_content.editorial_quality_score,
                 agent_version="1.0",
@@ -302,16 +302,22 @@ class NewsletterStorage:
         sections.extend(
             [
                 "",
-                "## Sources",
+                "## Conclusion & What This Means",
+                "",
+                "Based on the analysis above, readers should focus on monitoring institutional adoption patterns, regulatory developments, and cross-asset correlations as key indicators for the next phase of market evolution. The convergence of traditional finance infrastructure with crypto assets represents a fundamental shift that demands careful attention to both opportunities and risks.",
+                "",
+                "## Sources & Citations",
                 "",
             ]
         )
 
-        for source in content.source_citations:
-            sections.append(f"- {source}")
+        for i, source in enumerate(content.source_citations, 1):
+            sections.append(f"{i}. {source}")
 
         sections.extend(
             [
+                "",
+                "---",
                 "",
                 f"*Estimated read time: {content.estimated_read_time} minutes*",
                 f"*Quality score: {content.editorial_quality_score:.2f}*",
