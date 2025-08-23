@@ -185,8 +185,10 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
 
                 # Store newsletter (using existing storage logic)
                 from crypto_newsletter.newsletter.storage import NewsletterStorage
+                from crypto_newsletter.shared.database.connection import get_db_session
 
-                async with NewsletterStorage() as storage:
+                async with get_db_session() as db:
+                    storage = NewsletterStorage(db)
                     newsletter = await storage.create_newsletter(
                         newsletter_content=newsletter_result.output,
                         story_selection=selection_result.output,
