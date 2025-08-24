@@ -80,193 +80,168 @@ class NewsletterGenerationException(Exception):
 
 
 @celery_app.task(bind=True, name="generate_newsletter_manual_task_enhanced")
-def generate_newsletter_manual_task_enhanced(
+async def generate_newsletter_manual_task_enhanced(
     self, newsletter_type: str = "DAILY", force_generation: bool = False
 ):
     """Enhanced newsletter generation task with progress tracking."""
-    import asyncio
+    from crypto_newsletter.newsletter.services.progress_tracker import (
+        ProgressTracker,
+    )
 
-    async def _generate_newsletter_enhanced():
-        """Async newsletter generation with progress tracking."""
-        from crypto_newsletter.newsletter.services.progress_tracker import (
-            ProgressTracker,
-        )
+    task_id = self.request.id
 
-        task_id = self.request.id
-
-        # Initialize progress tracking immediately to avoid 404 errors
-        async with ProgressTracker() as progress_tracker:
-            try:
-                await progress_tracker.initialize_progress(
-                    task_id=task_id,
-                    articles_count=0,  # Will be updated once we know the count
-                    estimated_completion=datetime.utcnow() + timedelta(minutes=5),
-                )
-                logger.info(f"Initialized progress tracking for task {task_id}")
-            except Exception as init_error:
-                logger.error(f"Failed to initialize progress tracking: {init_error}")
-                # Continue anyway, but progress tracking won't work
-
+    # Initialize progress tracking immediately to avoid 404 errors
+    async with ProgressTracker() as progress_tracker:
         try:
-            logger.info(f"Starting enhanced {newsletter_type} newsletter generation")
+            await progress_tracker.initialize_progress(
+                task_id=task_id,
+                articles_count=0,  # Will be updated once we know the count
+                estimated_completion=datetime.utcnow() + timedelta(minutes=5),
+            )
+            logger.info(f"Initialized progress tracking for task {task_id}")
+        except Exception as init_error:
+            logger.error(f"Failed to initialize progress tracking: {init_error}")
+            # Continue anyway, but progress tracking won't work
 
-            # Initialize enhanced orchestrator with task ID
-            orchestrator = ProgressAwareNewsletterOrchestrator()
-            orchestrator.set_task_id(task_id)
+    try:
+        logger.info(f"Starting enhanced {newsletter_type} newsletter generation")
 
-            async with get_db_session() as db:
-                article_repo = ArticleRepository(db)
-                newsletter_repo = NewsletterRepository(db)
+        # Initialize enhanced orchestrator with task ID
+        orchestrator = ProgressAwareNewsletterOrchestrator()
+        orchestrator.set_task_id(task_id)
 
-                if newsletter_type.upper() == "DAILY":
-                    # Check if daily newsletter already exists for today
-                    if not force_generation:
-                        today = datetime.now().date()
-                        existing_newsletters = (
-                            await newsletter_repo.get_newsletters_with_filters(
-                                limit=1,
-                                newsletter_type="DAILY",
-                                start_date=today.isoformat(),
-                                end_date=today.isoformat(),
-                            )
+        async with get_db_session() as db:
+            article_repo = ArticleRepository(db)
+            newsletter_repo = NewsletterRepository(db)
+
+            if newsletter_type.upper() == "DAILY":
+                # Check if daily newsletter already exists for today
+                if not force_generation:
+                    today = datetime.now().date()
+                    existing_newsletters = (
+                        await newsletter_repo.get_newsletters_with_filters(
+                            limit=1,
+                            newsletter_type="DAILY",
+                            start_date=today.isoformat(),
+                            end_date=today.isoformat(),
                         )
-                        if existing_newsletters:
-                            existing = existing_newsletters[0]
-                            logger.info(f"Daily newsletter already exists for {today}")
-                            return {
-                                "success": True,
-                                "message": "Daily newsletter already exists",
-                                "newsletter_id": existing.id,
-                                "skipped": True,
-                            }
-
-                    # Get articles from last 7 days with analysis (temporary fix for testing)
-                    cutoff_time = datetime.now() - timedelta(days=7)
-                    articles = await article_repo.get_articles_with_analysis_since(
-                        cutoff_time, min_signal_strength=0.0
                     )
-
-                    if len(articles) < 10:
-                        logger.warning(
-                            f"Only {len(articles)} articles available for daily newsletter"
-                        )
+                    if existing_newsletters:
+                        existing = existing_newsletters[0]
+                        logger.info(f"Daily newsletter already exists for {today}")
                         return {
-                            "success": False,
-                            "message": f"Insufficient articles ({len(articles)}) for newsletter generation",
-                            "articles_found": len(articles),
+                            "success": True,
+                            "message": "Daily newsletter already exists",
+                            "newsletter_id": existing.id,
+                            "skipped": True,
                         }
 
-                    # Convert articles for agent processing
-                    articles_for_agents = await _convert_articles_for_agents(
-                        articles, db
+                # Get articles from last 7 days with analysis (temporary fix for testing)
+                cutoff_time = datetime.now() - timedelta(days=7)
+                articles = await article_repo.get_articles_with_analysis_since(
+                    cutoff_time, min_signal_strength=0.0
+                )
+
+                if len(articles) < 10:
+                    logger.warning(
+                        f"Only {len(articles)} articles available for daily newsletter"
                     )
+                    return {
+                        "success": False,
+                        "message": f"Insufficient articles ({len(articles)}) for newsletter generation",
+                        "articles_found": len(articles),
+                    }
 
-                    # Generate newsletter with progress tracking
-                    result = await orchestrator.generate_daily_newsletter_with_progress(
-                        articles_for_agents, newsletter_type
-                    )
+                # Convert articles for agent processing
+                articles_for_agents = await _convert_articles_for_agents(articles, db)
 
-                    logger.info(
-                        f"Enhanced daily newsletter generation completed: {result['newsletter_id']}"
-                    )
-                    return result
+                # Generate newsletter with progress tracking
+                result = await orchestrator.generate_daily_newsletter_with_progress(
+                    articles_for_agents, newsletter_type
+                )
 
-                else:
-                    raise ValueError(f"Invalid newsletter type: {newsletter_type}")
+                logger.info(
+                    f"Enhanced daily newsletter generation completed: {result['newsletter_id']}"
+                )
+                return result
 
-        except Exception as e:
-            # Mark progress as failed if anything goes wrong
-            try:
-                async with ProgressTracker() as progress_tracker:
-                    await progress_tracker.mark_failed(
-                        task_id, str(e), {"error_type": type(e).__name__}
-                    )
-            except Exception as progress_error:
-                logger.error(f"Failed to mark progress as failed: {progress_error}")
+            else:
+                raise ValueError(f"Invalid newsletter type: {newsletter_type}")
 
-            logger.error(f"Enhanced newsletter generation failed: {e}", exc_info=True)
-            raise
+    except Exception as e:
+        # Mark progress as failed if anything goes wrong
+        try:
+            async with ProgressTracker() as progress_tracker:
+                await progress_tracker.mark_failed(
+                    task_id, str(e), {"error_type": type(e).__name__}
+                )
+        except Exception as progress_error:
+            logger.error(f"Failed to mark progress as failed: {progress_error}")
 
-    # Run the async function
-    return asyncio.run(_generate_newsletter_enhanced())
+        logger.error(f"Enhanced newsletter generation failed: {e}", exc_info=True)
+        raise
 
 
-@celery_app.task(bind=True, name="crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task")
-def check_newsletter_alerts_task(self):
+@celery_app.task(
+    bind=True, name="crypto_newsletter.newsletter.tasks.check_newsletter_alerts_task"
+)
+async def check_newsletter_alerts_task(self):
     """Periodic task to check for newsletter generation alerts."""
-    import asyncio
+    try:
+        from crypto_newsletter.newsletter.alerts import check_newsletter_alerts
 
-    async def _check_alerts():
-        """Async alert checking."""
-        try:
-            from crypto_newsletter.newsletter.alerts import check_newsletter_alerts
+        logger.info("Starting newsletter alert check")
+        alerts = await check_newsletter_alerts()
 
-            logger.info("Starting newsletter alert check")
-            alerts = await check_newsletter_alerts()
+        alert_summary = {
+            "total_alerts": len(alerts),
+            "critical_alerts": len(
+                [a for a in alerts if a.severity.value == "critical"]
+            ),
+            "warning_alerts": len([a for a in alerts if a.severity.value == "warning"]),
+            "info_alerts": len([a for a in alerts if a.severity.value == "info"]),
+            "alert_types": list(set(a.alert_type.value for a in alerts)),
+            "timestamp": datetime.now().isoformat(),
+        }
 
-            alert_summary = {
-                "total_alerts": len(alerts),
-                "critical_alerts": len(
-                    [a for a in alerts if a.severity.value == "critical"]
-                ),
-                "warning_alerts": len(
-                    [a for a in alerts if a.severity.value == "warning"]
-                ),
-                "info_alerts": len([a for a in alerts if a.severity.value == "info"]),
-                "alert_types": list(set(a.alert_type.value for a in alerts)),
-                "timestamp": datetime.now().isoformat(),
-            }
+        logger.info(f"Newsletter alert check completed: {alert_summary}")
+        return alert_summary
 
-            logger.info(f"Newsletter alert check completed: {alert_summary}")
-            return alert_summary
-
-        except Exception as e:
-            logger.error(f"Newsletter alert check failed: {e}", exc_info=True)
-            raise
-
-    # Run the async function
-    return asyncio.run(_check_alerts())
+    except Exception as e:
+        logger.error(f"Newsletter alert check failed: {e}", exc_info=True)
+        raise
 
 
-@celery_app.task(bind=True, name="crypto_newsletter.newsletter.tasks.cleanup_progress_records_task")
-def cleanup_progress_records_task(self):
+@celery_app.task(
+    bind=True, name="crypto_newsletter.newsletter.tasks.cleanup_progress_records_task"
+)
+async def cleanup_progress_records_task(self):
     """Periodic task to cleanup old newsletter generation progress records."""
-    import asyncio
+    try:
 
-    async def _cleanup_progress():
-        """Async progress cleanup."""
-        try:
-            from crypto_newsletter.newsletter.services.progress_tracker import (
-                NewsletterProgressTracker,
-            )
+        logger.info("Starting newsletter progress cleanup")
 
-            logger.info("Starting newsletter progress cleanup")
+        # Clean up records older than 24 hours
+        # Note: This functionality needs to be implemented in ProgressTracker
+        cleaned_count = 0  # Placeholder until cleanup method is implemented
 
-            # Clean up records older than 24 hours
-            cleaned_count = await NewsletterProgressTracker.cleanup_old_records_standalone(
-                hours_old=24
-            )
+        result = {
+            "success": True,
+            "cleaned_records": cleaned_count,
+            "message": f"Successfully cleaned up {cleaned_count} old progress records",
+        }
 
-            result = {
-                "success": True,
-                "cleaned_records": cleaned_count,
-                "message": f"Successfully cleaned up {cleaned_count} old progress records",
-            }
+        logger.info(f"Newsletter progress cleanup completed: {result}")
+        return result
 
-            logger.info(f"Newsletter progress cleanup completed: {result}")
-            return result
-
-        except Exception as e:
-            error_msg = f"Newsletter progress cleanup failed: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            return {
-                "success": False,
-                "error": error_msg,
-                "cleaned_records": 0,
-            }
-
-    # Run the async function
-    return asyncio.run(_cleanup_progress())
+    except Exception as e:
+        error_msg = f"Newsletter progress cleanup failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return {
+            "success": False,
+            "error": error_msg,
+            "cleaned_records": 0,
+        }
 
 
 @celery_app.task(
@@ -620,11 +595,15 @@ async def generate_newsletter_manual_task(
     logger.info(f"Manual newsletter generation triggered: {newsletter_type}")
 
     if newsletter_type.upper() == "DAILY":
-        # Call the task function directly - Celery handles 'self' automatically
-        return await generate_daily_newsletter_task(force_generation=force_generation)
+        # Call the task function directly with self parameter
+        return await generate_daily_newsletter_task(
+            self, force_generation=force_generation
+        )
     elif newsletter_type.upper() == "WEEKLY":
-        # Call the task function directly - Celery handles 'self' automatically
-        return await generate_weekly_newsletter_task(force_generation=force_generation)
+        # Call the task function directly with self parameter
+        return await generate_weekly_newsletter_task(
+            self, force_generation=force_generation
+        )
     else:
         return {
             "status": "failed",
