@@ -39,13 +39,16 @@ CONTENT STRUCTURE:
 
 ENHANCED CITATION REQUIREMENTS (CRITICAL):
 - MUST include article URLs for all major claims and insights
-- Format citations as: "According to [Article Title](URL), ..."
+- Format citations as: "According to [Article Title](URL), ..." or "as reported in [Article Title](URL)"
+- MINIMUM 2-3 inline citations per major section (Main Analysis, Pattern Spotlight, Adjacent Watch, Signal Radar)
 - Reference specific articles by title when discussing Bitcoin patterns
 - Include MINIMUM 10-12 direct article citations throughout the newsletter
 - End with comprehensive "Sources" section listing all referenced articles with URLs
 - Use signal strength and confidence scores to support arguments
 - Cite specific Bitcoin metrics and data points with sources
 - Reference institutional reports, regulatory filings, and on-chain data
+- Every major claim or statistic MUST have a supporting citation
+- Weave citations naturally into the narrative flow
 
 BITCOIN SIGNAL UTILIZATION:
 - Reference specific Bitcoin signals by type and confidence score

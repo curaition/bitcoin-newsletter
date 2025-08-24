@@ -457,6 +457,86 @@ class NewsletterStorage:
             generation_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
         )
 
+    def _generate_html_from_markdown(self, markdown_content: str, newsletter) -> str:
+        """
+        Generate HTML from markdown content for newsletters stored as plain text.
+
+        Args:
+            markdown_content: Raw markdown content
+            newsletter: Newsletter database object
+
+        Returns:
+            HTML formatted newsletter content
+        """
+        import markdown
+
+        # Convert markdown to HTML
+        html_content = markdown.markdown(
+            markdown_content,
+            extensions=['markdown.extensions.extra', 'markdown.extensions.codehilite']
+        )
+
+        # Create HTML template
+        template_str = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .newsletter-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #f7931a; border-bottom: 3px solid #f7931a; padding-bottom: 10px; }
+        h2 { color: #333; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        h3 { color: #555; margin-top: 25px; }
+        a { color: #f7931a; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="newsletter-container">
+        {{ content }}
+        <div class="footer">
+            <p><strong>Quality Score:</strong> {{ quality_score }}/1.0</p>
+            <p><strong>Generated:</strong> {{ generation_date }}</p>
+        </div>
+    </div>
+</body>
+</html>
+        """
+
+        template = Template(template_str)
+
+        return template.render(
+            title=newsletter.title,
+            content=html_content,
+            quality_score=f"{newsletter.quality_score:.2f}" if newsletter.quality_score else "N/A",
+            generation_date=newsletter.generation_date.strftime("%Y-%m-%d %H:%M UTC") if newsletter.generation_date else "Unknown",
+        )
+
     async def get_newsletter_html(self, newsletter_id: int) -> Optional[str]:
         """
         Get newsletter content as HTML.
@@ -475,9 +555,14 @@ class NewsletterStorage:
         try:
             import json
 
-            content_dict = json.loads(newsletter.content)
-            content = NewsletterContent(**content_dict)
-            return self._generate_html_content(content)
+            # Try to parse as JSON first (structured content)
+            try:
+                content_dict = json.loads(newsletter.content)
+                content = NewsletterContent(**content_dict)
+                return self._generate_html_content(content)
+            except (json.JSONDecodeError, TypeError):
+                # Content is stored as markdown text, convert it to HTML directly
+                return self._generate_html_from_markdown(newsletter.content, newsletter)
         except Exception as e:
             logger.error(f"Failed to generate HTML for newsletter {newsletter_id}: {e}")
             return None
