@@ -6,14 +6,13 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 import markdown
-from jinja2 import Template
-
 from crypto_newsletter.newsletter.models.newsletter import (
     NewsletterContent,
     NewsletterSynthesis,
     StorySelection,
 )
 from crypto_newsletter.shared.models import Newsletter, NewsletterArticle
+from jinja2 import Template
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -347,18 +346,20 @@ class NewsletterStorage:
         html_content = markdown.markdown(
             markdown_content,
             extensions=[
-                'markdown.extensions.codehilite',
-                'markdown.extensions.tables',
-                'markdown.extensions.toc',
-                'markdown.extensions.fenced_code',
-                'markdown.extensions.nl2br'
-            ]
+                "markdown.extensions.codehilite",
+                "markdown.extensions.tables",
+                "markdown.extensions.toc",
+                "markdown.extensions.fenced_code",
+                "markdown.extensions.nl2br",
+            ],
         )
 
         # Apply newsletter-specific HTML template
         return self._apply_newsletter_template(html_content, content)
 
-    def _apply_newsletter_template(self, html_content: str, content: NewsletterContent) -> str:
+    def _apply_newsletter_template(
+        self, html_content: str, content: NewsletterContent
+    ) -> str:
         """
         Apply HTML template to newsletter content.
 
@@ -453,7 +454,7 @@ class NewsletterStorage:
             content=html_content,
             read_time=content.estimated_read_time,
             quality_score=f"{content.editorial_quality_score:.2f}",
-            generation_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+            generation_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
         )
 
     async def get_newsletter_html(self, newsletter_id: int) -> Optional[str]:
@@ -473,6 +474,7 @@ class NewsletterStorage:
         # Parse the stored content back to NewsletterContent
         try:
             import json
+
             content_dict = json.loads(newsletter.content)
             content = NewsletterContent(**content_dict)
             return self._generate_html_content(content)
@@ -491,13 +493,13 @@ class NewsletterStorage:
             Dictionary with citation counts and metrics
         """
         # Pattern for markdown links: [text](url)
-        markdown_pattern = r'\[([^\]]+)\]\(https?://[^\)]+\)'
+        markdown_pattern = r"\[([^\]]+)\]\(https?://[^\)]+\)"
 
         # Pattern for signal references with confidence scores
-        signal_pattern = r'signal.*?\((\d+\.\d+)\)'
+        signal_pattern = r"signal.*?\((\d+\.\d+)\)"
 
         # Extract all URLs for validation
-        url_pattern = r'https?://[^\s\)]+'
+        url_pattern = r"https?://[^\s\)]+"
         urls = re.findall(url_pattern, content)
 
         # Count different citation types
@@ -505,9 +507,11 @@ class NewsletterStorage:
         signal_references = re.findall(signal_pattern, content, re.IGNORECASE)
 
         return {
-            'total_citations': len(markdown_citations),
-            'signal_references': len(signal_references),
-            'unique_urls': len(set(urls)),
-            'citation_density': len(markdown_citations) / max(len(content.split()), 1) * 1000,  # per 1000 words
-            'meets_minimum_citations': len(markdown_citations) >= 8
+            "total_citations": len(markdown_citations),
+            "signal_references": len(signal_references),
+            "unique_urls": len(set(urls)),
+            "citation_density": len(markdown_citations)
+            / max(len(content.split()), 1)
+            * 1000,  # per 1000 words
+            "meets_minimum_citations": len(markdown_citations) >= 8,
         }

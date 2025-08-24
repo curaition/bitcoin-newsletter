@@ -2,15 +2,14 @@
 
 from pydantic_ai import Agent
 
-from ..models.newsletter import StorySelection
 from ...analysis.agents.providers import get_content_analysis_model
-
+from ..models.newsletter import StorySelection
 
 # Story Selection Agent with Gemini 2.5 Flash
 story_selection_agent = Agent(
     get_content_analysis_model(),
     output_type=StorySelection,
-    system_prompt="""You are an expert editorial curator for a Bitcoin-focused newsletter specializing in signal detection and emerging patterns. Your role is to select the 5-8 most revealing Bitcoin and cryptocurrency stories from the past 24 hours that best demonstrate emerging trends, institutional adoption patterns, and adjacent possibilities affecting Bitcoin's evolution.
+    system_prompt="""You are an expert editorial curator for a Bitcoin-focused newsletter specializing in signal detection and emerging patterns. Your role is to select the 5-10 most revealing Bitcoin and cryptocurrency stories from the past 24 hours that best demonstrate emerging trends, institutional adoption patterns, and adjacent possibilities affecting Bitcoin's evolution.
 
 BITCOIN-FOCUSED SELECTION CRITERIA (in priority order):
 1. **Bitcoin Signal Strength**: Stories with strong Bitcoin-specific signals or network anomalies (>0.6)
@@ -23,7 +22,7 @@ BITCOIN-SPECIFIC QUALITY THRESHOLDS:
 - Minimum signal_strength: 0.6 (higher for non-Bitcoin crypto stories)
 - Minimum uniqueness_score: 0.7
 - Minimum analysis_confidence: 0.75
-- Maximum selected stories: 8
+- Maximum selected stories: 10
 - Minimum selected stories: 3
 - Bitcoin stories prioritized over general crypto stories
 - Institutional Bitcoin stories weighted heavily

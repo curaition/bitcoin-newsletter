@@ -28,6 +28,7 @@ import {
   Code,
   Edit,
   Trash2,
+  Globe,
 
 } from 'lucide-react';
 import { useNewsletter, useUpdateNewsletterStatus, useDeleteNewsletter } from '@/hooks/api/useNewsletters';
@@ -263,7 +264,7 @@ export function NewsletterDetailPage() {
               <div>
                 <h4 className="font-medium mb-2">Content</h4>
                 <Tabs defaultValue="markdown" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="markdown" className="flex items-center gap-2">
                       <Code className="h-4 w-4" />
                       Markdown
@@ -272,10 +273,14 @@ export function NewsletterDetailPage() {
                       <Eye className="h-4 w-4" />
                       Preview
                     </TabsTrigger>
+                    <TabsTrigger value="html" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      HTML
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="markdown" className="mt-4">
                     <div className="prose prose-sm max-w-none">
-                      <div className="text-sm whitespace-pre-wrap bg-muted/50 p-4 rounded-md max-h-[600px] overflow-y-auto font-mono">
+                      <div className="text-sm whitespace-pre-wrap bg-muted/50 p-4 rounded-md font-mono">
                         {newsletter.content}
                       </div>
                     </div>
@@ -283,7 +288,7 @@ export function NewsletterDetailPage() {
                   <TabsContent value="preview" className="mt-4">
                     <div className="prose prose-sm max-w-none">
                       <div
-                        className="bg-white p-6 rounded-md border max-h-[600px] overflow-y-auto"
+                        className="bg-white p-6 rounded-md border"
                         dangerouslySetInnerHTML={{
                           __html: newsletter.content
                             .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-orange-500 border-b-2 border-orange-500 pb-2 mb-4">$1</h1>')
@@ -297,6 +302,15 @@ export function NewsletterDetailPage() {
                             .replace(/<p class="mb-4"><h/g, '<h')
                             .replace(/<\/h([1-6])><\/p>/g, '</h$1>')
                         }}
+                      />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="html" className="mt-4">
+                    <div className="prose prose-sm max-w-none">
+                      <iframe
+                        src={`/api/newsletters/${newsletter.id}/html`}
+                        className="w-full h-[800px] border rounded-md"
+                        title="Newsletter HTML Preview"
                       />
                     </div>
                   </TabsContent>

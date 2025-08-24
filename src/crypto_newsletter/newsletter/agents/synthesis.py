@@ -2,9 +2,8 @@
 
 from pydantic_ai import Agent
 
-from ..models.newsletter import NewsletterSynthesis
 from ...analysis.agents.providers import get_content_analysis_model
-
+from ..models.newsletter import NewsletterSynthesis
 
 # Synthesis Agent with Gemini 2.5 Flash
 synthesis_agent = Agent(

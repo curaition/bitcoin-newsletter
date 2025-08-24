@@ -207,7 +207,9 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
                                 ]
                             ),
                             "quality_score": newsletter_result.output.editorial_quality_score,
-                            "content_quality": await self._validate_content_quality(newsletter_result.output),
+                            "content_quality": await self._validate_content_quality(
+                                newsletter_result.output
+                            ),
                         },
                     )
 
@@ -225,11 +227,13 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
                 return {
                     "success": True,
                     "newsletter_id": newsletter.id,
-                    "newsletter_content": newsletter_result.output.model_dump(mode='json'),
+                    "newsletter_content": newsletter_result.output.model_dump(
+                        mode="json"
+                    ),
                     "quality_metrics": {
-                        "selection_quality": selection_quality.model_dump(mode='json'),
-                        "synthesis_quality": synthesis_quality.model_dump(mode='json'),
-                        "writing_quality": writing_quality.model_dump(mode='json'),
+                        "selection_quality": selection_quality.model_dump(mode="json"),
+                        "synthesis_quality": synthesis_quality.model_dump(mode="json"),
+                        "writing_quality": writing_quality.model_dump(mode="json"),
                     },
                     "generation_time": (datetime.utcnow() - start_time).total_seconds(),
                 }
@@ -312,34 +316,40 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
 
             # Validate content sections length
             content_sections = {
-                'main_analysis': content.main_analysis,
-                'pattern_spotlight': content.pattern_spotlight,
-                'adjacent_watch': content.adjacent_watch,
-                'signal_radar': content.signal_radar
+                "main_analysis": content.main_analysis,
+                "pattern_spotlight": content.pattern_spotlight,
+                "adjacent_watch": content.adjacent_watch,
+                "signal_radar": content.signal_radar,
             }
-            length_metrics = citation_validator.validate_content_length(content_sections)
+            length_metrics = citation_validator.validate_content_length(
+                content_sections
+            )
 
             # Generate quality report
-            quality_report = citation_validator.generate_quality_report(full_content, content_sections)
+            quality_report = citation_validator.generate_quality_report(
+                full_content, content_sections
+            )
 
             # Validate source URLs (async)
-            if citation_metrics.get('urls_for_validation'):
+            if citation_metrics.get("urls_for_validation"):
                 url_validation = await citation_validator.validate_source_urls(
-                    citation_metrics['urls_for_validation']
+                    citation_metrics["urls_for_validation"]
                 )
-                quality_report['url_validation'] = url_validation
-                quality_report['accessible_urls'] = sum(url_validation.values())
-                quality_report['total_urls'] = len(url_validation)
+                quality_report["url_validation"] = url_validation
+                quality_report["accessible_urls"] = sum(url_validation.values())
+                quality_report["total_urls"] = len(url_validation)
 
-            logger.info(f"Content quality validation complete: {quality_report['overall_quality_score']:.2f}")
+            logger.info(
+                f"Content quality validation complete: {quality_report['overall_quality_score']:.2f}"
+            )
 
             return quality_report
 
         except Exception as e:
             logger.error(f"Content quality validation failed: {e}")
             return {
-                'error': str(e),
-                'overall_quality_score': 0.0,
-                'citation_metrics': {'total_citations': 0},
-                'recommendations': ['Content quality validation failed']
+                "error": str(e),
+                "overall_quality_score": 0.0,
+                "citation_metrics": {"total_citations": 0},
+                "recommendations": ["Content quality validation failed"],
             }

@@ -1,6 +1,6 @@
 /**
  * Newsletter Statistics Card Component
- * 
+ *
  * Displays enhanced newsletter metrics including quality scores,
  * citation compliance, content length metrics, and cost tracking.
  */
@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { 
-  TrendingUp, 
-  FileText, 
-  DollarSign, 
-  CheckCircle, 
+import {
+  TrendingUp,
+  FileText,
+  DollarSign,
+  CheckCircle,
   AlertCircle,
   BarChart3,
   Clock,
@@ -82,11 +82,11 @@ export function NewsletterStatsCard({ days = 30, className }: NewsletterStatsCar
         setLoading(true);
         setError(null);
         const response = await fetch(`/api/newsletters/stats?days=${days}`);
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch newsletter stats: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         setStats(data);
       } catch (err) {
@@ -138,10 +138,10 @@ export function NewsletterStatsCard({ days = 30, className }: NewsletterStatsCar
     );
   }
 
-  const qualityScoreColor = stats.quality_metrics.average_quality_score >= 0.8 
-    ? 'text-green-600' 
-    : stats.quality_metrics.average_quality_score >= 0.6 
-    ? 'text-yellow-600' 
+  const qualityScoreColor = stats.quality_metrics.average_quality_score >= 0.8
+    ? 'text-green-600'
+    : stats.quality_metrics.average_quality_score >= 0.6
+    ? 'text-yellow-600'
     : 'text-red-600';
 
   const citationComplianceColor = stats.quality_metrics.citation_metrics.citation_compliance_rate >= 0.8
@@ -195,19 +195,19 @@ export function NewsletterStatsCard({ days = 30, className }: NewsletterStatsCar
                 {stats.quality_metrics.average_quality_score.toFixed(2)}
               </span>
             </div>
-            <Progress 
-              value={stats.quality_metrics.average_quality_score * 100} 
+            <Progress
+              value={stats.quality_metrics.average_quality_score * 100}
               className="h-2"
             />
-            
+
             <div className="flex items-center justify-between">
               <span className="text-sm">Citation Compliance</span>
               <span className={`text-sm font-medium ${citationComplianceColor}`}>
                 {(stats.quality_metrics.citation_metrics.citation_compliance_rate * 100).toFixed(1)}%
               </span>
             </div>
-            <Progress 
-              value={stats.quality_metrics.citation_metrics.citation_compliance_rate * 100} 
+            <Progress
+              value={stats.quality_metrics.citation_metrics.citation_compliance_rate * 100}
               className="h-2"
             />
           </div>
