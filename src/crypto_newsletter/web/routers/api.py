@@ -191,6 +191,44 @@ async def get_stats(
         raise HTTPException(status_code=500, detail=f"Failed to get statistics: {e}")
 
 
+@router.get("/newsletters/stats", response_model=dict)
+async def get_newsletter_stats(
+    days: int = Query(30, description="Number of days to include in stats", le=365),
+    api_key: Optional[str] = Security(get_api_key),
+) -> dict[str, Any]:
+    """
+    Get enhanced newsletter statistics including quality metrics and trends.
+
+    Args:
+        days: Number of days to include in statistics
+        api_key: Optional API key for authentication
+
+    Returns:
+        Enhanced newsletter statistics with quality and content metrics
+    """
+    try:
+        async with get_db_session() as db:
+            newsletter_repo = NewsletterRepository(db)
+
+            # Get newsletters from the specified period
+            from datetime import datetime, timedelta
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=days)
+
+            newsletters = await newsletter_repo.get_newsletters_by_date_range(
+                start_date=start_date,
+                end_date=end_date
+            )
+
+            # Calculate enhanced metrics
+            stats = await _calculate_enhanced_newsletter_stats(newsletters, days)
+
+            return stats
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get newsletter statistics: {e}")
+
+
 @router.get("/articles/analysis-ready", response_model=list[ArticleResponse])
 async def get_analysis_ready_articles(
     limit: int = Query(10, description="Maximum number of articles to return", le=100),
@@ -649,3 +687,176 @@ async def delete_newsletter(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete newsletter: {e}")
+
+
+async def _calculate_enhanced_newsletter_stats(newsletters: list, days: int) -> dict[str, Any]:
+    """
+    Calculate enhanced newsletter statistics including quality and content metrics.
+
+    Args:
+        newsletters: List of newsletter objects
+        days: Number of days in the analysis period
+
+    Returns:
+        Dictionary with enhanced statistics
+    """
+    from datetime import datetime
+    import json
+    import re
+
+    total_newsletters = len(newsletters)
+
+    if total_newsletters == 0:
+        return {
+            "period_days": days,
+            "total_newsletters": 0,
+            "newsletter_types": {"daily": 0, "weekly": 0},
+            "status_breakdown": {},
+            "quality_metrics": {
+                "average_quality_score": 0.0,
+                "newsletters_with_scores": 0,
+                "citation_metrics": {
+                    "average_citations": 0.0,
+                    "newsletters_with_citations": 0,
+                    "citation_compliance_rate": 0.0
+                },
+                "content_length_metrics": {
+                    "average_word_count": 0,
+                    "newsletters_analyzed": 0
+                }
+            },
+            "cost_metrics": {
+                "total_generation_cost": 0.0,
+                "average_cost_per_newsletter": 0.0,
+                "newsletters_with_cost_data": 0
+            },
+            "quality_trends": [],
+            "recent_newsletters": [],
+            "timestamp": datetime.now().isoformat()
+        }
+
+    # Initialize counters
+    newsletter_types = {"daily": 0, "weekly": 0}
+    status_breakdown = {}
+    quality_scores = []
+    generation_costs = []
+    citation_counts = []
+    word_counts = []
+    quality_trends = []
+
+    # Process each newsletter
+    for newsletter in newsletters:
+        # Count by type
+        if newsletter.generation_metadata:
+            newsletter_type = newsletter.generation_metadata.get("newsletter_type", "").lower()
+            if newsletter_type in newsletter_types:
+                newsletter_types[newsletter_type] += 1
+
+        # Count by status
+        status = newsletter.status
+        status_breakdown[status] = status_breakdown.get(status, 0) + 1
+
+        # Collect quality scores
+        if newsletter.quality_score is not None:
+            quality_scores.append(newsletter.quality_score)
+
+            # Add to quality trends
+            quality_trends.append({
+                "date": newsletter.generation_date.isoformat() if newsletter.generation_date else newsletter.created_at.isoformat(),
+                "quality_score": newsletter.quality_score,
+                "newsletter_id": newsletter.id,
+                "type": newsletter.generation_metadata.get("newsletter_type", "unknown") if newsletter.generation_metadata else "unknown"
+            })
+
+        # Collect generation costs
+        if newsletter.generation_metadata and "generation_cost" in newsletter.generation_metadata:
+            try:
+                cost = float(newsletter.generation_metadata["generation_cost"])
+                generation_costs.append(cost)
+            except (ValueError, TypeError):
+                pass
+
+        # Analyze content for citations and word count
+        if newsletter.content:
+            try:
+                # Try to parse as JSON first (if it's stored as structured data)
+                try:
+                    content_data = json.loads(newsletter.content)
+                    if isinstance(content_data, dict):
+                        # Extract text content from structured data
+                        content_text = ""
+                        for key, value in content_data.items():
+                            if isinstance(value, str):
+                                content_text += f"{value}\n"
+                    else:
+                        content_text = str(content_data)
+                except json.JSONDecodeError:
+                    # Content is plain text/markdown
+                    content_text = newsletter.content
+
+                # Count citations using regex
+                citation_pattern = r'\[([^\]]+)\]\(https?://[^\)]+\)'
+                citations = re.findall(citation_pattern, content_text)
+                citation_counts.append(len(citations))
+
+                # Count words
+                word_count = len(content_text.split())
+                word_counts.append(word_count)
+
+            except Exception:
+                # Skip content analysis if parsing fails
+                pass
+
+    # Calculate averages and metrics
+    avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
+    avg_generation_cost = sum(generation_costs) / len(generation_costs) if generation_costs else 0.0
+    avg_citations = sum(citation_counts) / len(citation_counts) if citation_counts else 0.0
+    avg_word_count = sum(word_counts) / len(word_counts) if word_counts else 0
+
+    # Calculate citation compliance rate (newsletters with >= 8 citations)
+    compliant_citations = sum(1 for count in citation_counts if count >= 8)
+    citation_compliance_rate = compliant_citations / len(citation_counts) if citation_counts else 0.0
+
+    # Sort quality trends by date
+    quality_trends.sort(key=lambda x: x["date"])
+
+    # Get recent newsletters for preview
+    recent_newsletters = []
+    for newsletter in sorted(newsletters, key=lambda x: x.created_at, reverse=True)[:5]:
+        recent_newsletters.append({
+            "id": newsletter.id,
+            "title": newsletter.title,
+            "type": newsletter.generation_metadata.get("newsletter_type", "unknown") if newsletter.generation_metadata else "unknown",
+            "status": newsletter.status,
+            "generation_date": newsletter.generation_date.isoformat() if newsletter.generation_date else newsletter.created_at.isoformat(),
+            "quality_score": newsletter.quality_score
+        })
+
+    return {
+        "period_days": days,
+        "total_newsletters": total_newsletters,
+        "newsletter_types": newsletter_types,
+        "status_breakdown": status_breakdown,
+        "quality_metrics": {
+            "average_quality_score": round(avg_quality_score, 3),
+            "newsletters_with_scores": len(quality_scores),
+            "citation_metrics": {
+                "average_citations": round(avg_citations, 1),
+                "newsletters_with_citations": len(citation_counts),
+                "citation_compliance_rate": round(citation_compliance_rate, 3),
+                "minimum_citations_required": 8
+            },
+            "content_length_metrics": {
+                "average_word_count": round(avg_word_count),
+                "newsletters_analyzed": len(word_counts)
+            }
+        },
+        "cost_metrics": {
+            "total_generation_cost": round(sum(generation_costs), 4),
+            "average_cost_per_newsletter": round(avg_generation_cost, 4),
+            "newsletters_with_cost_data": len(generation_costs)
+        },
+        "quality_trends": quality_trends,
+        "recent_newsletters": recent_newsletters,
+        "timestamp": datetime.now().isoformat()
+    }

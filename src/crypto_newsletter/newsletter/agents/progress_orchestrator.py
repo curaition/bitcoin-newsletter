@@ -10,6 +10,7 @@ from crypto_newsletter.newsletter.models.progress import (
     WritingQuality,
 )
 from crypto_newsletter.newsletter.services.progress_tracker import ProgressTracker
+from crypto_newsletter.newsletter.utils.citation_validator import citation_validator
 from loguru import logger
 
 
@@ -206,6 +207,7 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
                                 ]
                             ),
                             "quality_score": newsletter_result.output.editorial_quality_score,
+                            "content_quality": await self._validate_content_quality(newsletter_result.output),
                         },
                     )
 
@@ -223,11 +225,11 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
                 return {
                     "success": True,
                     "newsletter_id": newsletter.id,
-                    "newsletter_content": newsletter_result.output,
+                    "newsletter_content": newsletter_result.output.model_dump(mode='json'),
                     "quality_metrics": {
-                        "selection_quality": selection_quality,
-                        "synthesis_quality": synthesis_quality,
-                        "writing_quality": writing_quality,
+                        "selection_quality": selection_quality.model_dump(mode='json'),
+                        "synthesis_quality": synthesis_quality.model_dump(mode='json'),
+                        "writing_quality": writing_quality.model_dump(mode='json'),
                     },
                     "generation_time": (datetime.utcnow() - start_time).total_seconds(),
                 }
@@ -290,3 +292,54 @@ class ProgressAwareNewsletterOrchestrator(NewsletterOrchestrator):
             readability_score=min(1.0, word_count / 1000.0),  # Simple heuristic
             actionability_score=min(1.0, len(content.action_items) / 4.0),
         )
+
+    async def _validate_content_quality(self, content: Any) -> dict:
+        """
+        Validate newsletter content quality using citation validator.
+
+        Args:
+            content: NewsletterContent object to validate
+
+        Returns:
+            Dictionary with quality metrics and validation results
+        """
+        try:
+            # Convert content to string for validation
+            full_content = f"{content.title}\n\n{content.main_analysis}\n\n{content.pattern_spotlight}\n\n{content.adjacent_watch}\n\n{content.signal_radar}"
+
+            # Get citation metrics
+            citation_metrics = citation_validator.validate_citations(full_content)
+
+            # Validate content sections length
+            content_sections = {
+                'main_analysis': content.main_analysis,
+                'pattern_spotlight': content.pattern_spotlight,
+                'adjacent_watch': content.adjacent_watch,
+                'signal_radar': content.signal_radar
+            }
+            length_metrics = citation_validator.validate_content_length(content_sections)
+
+            # Generate quality report
+            quality_report = citation_validator.generate_quality_report(full_content, content_sections)
+
+            # Validate source URLs (async)
+            if citation_metrics.get('urls_for_validation'):
+                url_validation = await citation_validator.validate_source_urls(
+                    citation_metrics['urls_for_validation']
+                )
+                quality_report['url_validation'] = url_validation
+                quality_report['accessible_urls'] = sum(url_validation.values())
+                quality_report['total_urls'] = len(url_validation)
+
+            logger.info(f"Content quality validation complete: {quality_report['overall_quality_score']:.2f}")
+
+            return quality_report
+
+        except Exception as e:
+            logger.error(f"Content quality validation failed: {e}")
+            return {
+                'error': str(e),
+                'overall_quality_score': 0.0,
+                'citation_metrics': {'total_citations': 0},
+                'recommendations': ['Content quality validation failed']
+            }

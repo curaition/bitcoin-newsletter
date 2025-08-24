@@ -1,8 +1,12 @@
 """Newsletter storage and database operations."""
 
 import logging
+import re
 from datetime import date, datetime
 from typing import Any, Optional
+
+import markdown
+from jinja2 import Template
 
 from crypto_newsletter.newsletter.models.newsletter import (
     NewsletterContent,
@@ -325,3 +329,185 @@ class NewsletterStorage:
         )
 
         return "\n".join(sections)
+
+    def _generate_html_content(self, content: NewsletterContent) -> str:
+        """
+        Convert newsletter content to HTML format for email/web display.
+
+        Args:
+            content: NewsletterContent object to convert
+
+        Returns:
+            HTML formatted newsletter content
+        """
+        # Get the markdown content
+        markdown_content = self._format_newsletter_content(content)
+
+        # Convert markdown to HTML with extensions
+        html_content = markdown.markdown(
+            markdown_content,
+            extensions=[
+                'markdown.extensions.codehilite',
+                'markdown.extensions.tables',
+                'markdown.extensions.toc',
+                'markdown.extensions.fenced_code',
+                'markdown.extensions.nl2br'
+            ]
+        )
+
+        # Apply newsletter-specific HTML template
+        return self._apply_newsletter_template(html_content, content)
+
+    def _apply_newsletter_template(self, html_content: str, content: NewsletterContent) -> str:
+        """
+        Apply HTML template to newsletter content.
+
+        Args:
+            html_content: Raw HTML content from markdown conversion
+            content: Original NewsletterContent for metadata
+
+        Returns:
+            Templated HTML newsletter
+        """
+        template_str = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .newsletter-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #f7931a;
+            border-bottom: 3px solid #f7931a;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 30px;
+        }
+        .executive-summary {
+            background: #fff3cd;
+            border-left: 4px solid #f7931a;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .citation {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            color: #666;
+        }
+        a {
+            color: #f7931a;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #f7931a;
+            margin: 20px 0;
+            padding-left: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="newsletter-container">
+        {{ content }}
+        <div class="footer">
+            <p><strong>Read Time:</strong> {{ read_time }} minutes</p>
+            <p><strong>Quality Score:</strong> {{ quality_score }}/1.0</p>
+            <p><strong>Generated:</strong> {{ generation_date }}</p>
+        </div>
+    </div>
+</body>
+</html>
+        """
+
+        template = Template(template_str)
+
+        return template.render(
+            title=content.title,
+            content=html_content,
+            read_time=content.estimated_read_time,
+            quality_score=f"{content.editorial_quality_score:.2f}",
+            generation_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+        )
+
+    async def get_newsletter_html(self, newsletter_id: int) -> Optional[str]:
+        """
+        Get newsletter content as HTML.
+
+        Args:
+            newsletter_id: ID of the newsletter
+
+        Returns:
+            HTML formatted newsletter content or None if not found
+        """
+        newsletter = await self.get_newsletter_by_id(newsletter_id)
+        if not newsletter:
+            return None
+
+        # Parse the stored content back to NewsletterContent
+        try:
+            import json
+            content_dict = json.loads(newsletter.content)
+            content = NewsletterContent(**content_dict)
+            return self._generate_html_content(content)
+        except Exception as e:
+            logger.error(f"Failed to generate HTML for newsletter {newsletter_id}: {e}")
+            return None
+
+    def validate_citations(self, content: str) -> dict[str, int]:
+        """
+        Validate citations in newsletter content.
+
+        Args:
+            content: Newsletter content to validate
+
+        Returns:
+            Dictionary with citation counts and metrics
+        """
+        # Pattern for markdown links: [text](url)
+        markdown_pattern = r'\[([^\]]+)\]\(https?://[^\)]+\)'
+
+        # Pattern for signal references with confidence scores
+        signal_pattern = r'signal.*?\((\d+\.\d+)\)'
+
+        # Extract all URLs for validation
+        url_pattern = r'https?://[^\s\)]+'
+        urls = re.findall(url_pattern, content)
+
+        # Count different citation types
+        markdown_citations = re.findall(markdown_pattern, content)
+        signal_references = re.findall(signal_pattern, content, re.IGNORECASE)
+
+        return {
+            'total_citations': len(markdown_citations),
+            'signal_references': len(signal_references),
+            'unique_urls': len(set(urls)),
+            'citation_density': len(markdown_citations) / max(len(content.split()), 1) * 1000,  # per 1000 words
+            'meets_minimum_citations': len(markdown_citations) >= 8
+        }

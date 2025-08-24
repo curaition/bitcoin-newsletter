@@ -75,14 +75,14 @@ class NewsletterOrchestrator:
 
             return {
                 "success": True,
-                "newsletter_content": newsletter_result.output,
-                "story_selection": selection_result.output,
-                "synthesis": synthesis_result.output,
+                "newsletter_content": newsletter_result.output.model_dump(mode='json'),
+                "story_selection": selection_result.output.model_dump(mode='json'),
+                "synthesis": synthesis_result.output.model_dump(mode='json'),
                 "generation_metadata": {
                     "articles_reviewed": len(articles),
                     "stories_selected": len(selection_result.output.selected_stories),
                     "generation_cost": total_cost,
-                    "quality_score": newsletter_result.output.editorial_quality_score,
+                    "quality_score": float(newsletter_result.output.editorial_quality_score),
                 },
             }
 
@@ -353,13 +353,13 @@ Please create compelling newsletter content that transforms this analysis into a
 
             return {
                 "success": True,
-                "newsletter_content": weekly_content.output,
+                "newsletter_content": weekly_content.output.model_dump(mode='json'),
                 "story_selection": weekly_selection,
-                "synthesis": weekly_synthesis.output,
+                "synthesis": weekly_synthesis.output.model_dump(mode='json'),
                 "generation_metadata": {
                     "generation_cost": generation_cost,
                     "daily_newsletters_processed": len(daily_newsletters),
-                    "synthesis_confidence": weekly_synthesis.output.synthesis_confidence,
+                    "synthesis_confidence": float(weekly_synthesis.output.synthesis_confidence),
                     "agent_versions": {"synthesis": "1.0", "writer": "1.0"},
                 },
             }
