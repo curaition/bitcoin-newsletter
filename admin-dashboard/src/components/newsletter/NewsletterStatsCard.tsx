@@ -20,7 +20,7 @@ import {
   Clock,
   Link
 } from 'lucide-react';
-import { newsletterApi } from '@/services/api';
+
 
 interface NewsletterStats {
   period_days: number;
