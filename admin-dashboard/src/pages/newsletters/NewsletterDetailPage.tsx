@@ -35,6 +35,48 @@ import { useNewsletter, useUpdateNewsletterStatus, useDeleteNewsletter } from '@
 import { formatDistanceToNow } from 'date-fns';
 import type { NewsletterStatus } from '../../../../shared/types/api';
 import { NEWSLETTER_STATUS_OPTIONS } from '../../../../shared/types/api';
+import { config } from '@/utils/env';
+
+// Helper function to convert markdown to HTML with proper formatting
+function convertMarkdownToHtml(markdown: string): string {
+  return markdown
+    // Headers
+    .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-orange-500 border-b-2 border-orange-500 pb-2 mb-4">$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-medium text-gray-700 mt-4 mb-2">$1</h3>')
+
+    // Bold and italic
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+
+    // Links - handle both inline citations and regular links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-orange-500 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+
+    // Handle bullet points and numbered lists
+    .replace(/^-\s+(.+)$/gm, '<li class="mb-2">$1</li>')
+    .replace(/^(\d+)\.\s+(.+)$/gm, '<li class="mb-2">$2</li>')
+
+    // Wrap consecutive list items in ul tags
+    .replace(/(<li class="mb-2">.*<\/li>)(\s*<li class="mb-2">.*<\/li>)*/g, (match) => {
+      return `<ul class="list-disc list-inside mb-4 space-y-1">${match}</ul>`;
+    })
+
+    // Paragraphs - handle line breaks properly
+    .split('\n\n')
+    .map(paragraph => {
+      const trimmed = paragraph.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li')) {
+        return trimmed;
+      }
+      return `<p class="mb-4">${trimmed.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('\n')
+
+    // Clean up any remaining issues
+    .replace(/<p class="mb-4">(<h[1-6][^>]*>.*?<\/h[1-6]>)<\/p>/g, '$1')
+    .replace(/<p class="mb-4">(<ul[^>]*>.*?<\/ul>)<\/p>/g, '$1');
+}
 
 export function NewsletterDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -290,17 +332,7 @@ export function NewsletterDetailPage() {
                       <div
                         className="bg-white p-6 rounded-md border"
                         dangerouslySetInnerHTML={{
-                          __html: newsletter.content
-                            .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-orange-500 border-b-2 border-orange-500 pb-2 mb-4">$1</h1>')
-                            .replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
-                            .replace(/^### (.+)$/gm, '<h3 class="text-lg font-medium text-gray-700 mt-4 mb-2">$1</h3>')
-                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-orange-500 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
-                            .replace(/\n\n/g, '</p><p class="mb-4">')
-                            .replace(/^(.+)$/gm, '<p class="mb-4">$1</p>')
-                            .replace(/<p class="mb-4"><h/g, '<h')
-                            .replace(/<\/h([1-6])><\/p>/g, '</h$1>')
+                          __html: convertMarkdownToHtml(newsletter.content)
                         }}
                       />
                     </div>
@@ -308,7 +340,7 @@ export function NewsletterDetailPage() {
                   <TabsContent value="html" className="mt-4">
                     <div className="prose prose-sm max-w-none">
                       <iframe
-                        src={`/api/newsletters/${newsletter.id}/html`}
+                        src={`${config.apiUrl}/api/newsletters/${newsletter.id}/html`}
                         className="w-full h-[800px] border rounded-md"
                         title="Newsletter HTML Preview"
                       />

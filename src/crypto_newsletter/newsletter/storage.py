@@ -272,8 +272,8 @@ class NewsletterStorage:
             "",
         ]
 
-        for i, summary in enumerate(content.executive_summary, 1):
-            sections.append(f"{i}. {summary}")
+        for summary in content.executive_summary:
+            sections.append(f"- {summary}")
 
         sections.extend(
             [
