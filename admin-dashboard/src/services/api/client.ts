@@ -292,13 +292,18 @@ export class AdminAPIClient {
   }
 
   async updateNewsletterStatus(id: number, updateData: NewsletterUpdateRequest): Promise<any> {
-    const url = buildApiUrl(this.baseUrl, `/admin/newsletters/${id}/status`);
+    // Admin endpoint expects query parameters, not JSON body
+    const params: Record<string, any> = {};
+    if (updateData.status) params.status = updateData.status;
+    if (updateData.title) params.title = updateData.title;
+    if (updateData.summary) params.summary = updateData.summary;
+
+    const url = buildApiUrl(this.baseUrl, `/admin/newsletters/${id}/status`, params);
     const headers = createAuthHeaders(this.getToken());
 
     const response = await fetch(url, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(updateData),
     });
 
     const result = await processApiResponse(response);
